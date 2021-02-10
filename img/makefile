@@ -77,6 +77,8 @@ else
 		&& $(TCPDUMP) $(PEER).pcap > $(PEER).net \
 		&& read -p 'Press [Enter] key to close ...'" &
 endif
+else
+		echo "Test must be run on real hardware platform!" > $(OUTPUT)
 endif
 
 debug:		$(IMAGE)
