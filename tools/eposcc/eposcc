@@ -69,8 +69,8 @@ if [ "$BOOT_STACK" != "" ] ; then
     LINK_FLGS_LIBRARY="$LINK_FLGS_LIBRARY --defsym=__boot_stack__=$BOOT_STACK"
 fi
 LINK_OBJI_LIBRARY="$LIB/crt0_$MMOD.o $LIB/crtbegin_$MMOD.o $LIB/init_first_$MMOD.o"
-LINK_OBJN_LIBRARY="$LIB/application_$MMOD.o $LIB/init_application_$MMOD.o $LIB/init_system_$MMOD.o"
-LINK_OBJL_LIBRARY="$LIB/system_$MMOD.o $LIB/crtend_$MMOD.o"
+LINK_OBJN_LIBRARY="$LIB/application_$MMOD.o $LIB/init_application_$MMOD.o $LIB/init_system_$MMOD.o $LIB/system_$MMOD.o"
+LINK_OBJL_LIBRARY="$LIB/crtend_$MMOD.o"
 LINK_LIBS_LIBRARY="util_$MMOD sys_$MMOD init_$MMOD sys_$MMOD mach_$MMOD arch_$MMOD util_$MMOD gcc"
 if [ "$SETUP" = "" ] ; then
     LINK_OBJI_LIBRARY="$LIB/setup_$MMOD.o $LINK_OBJI_LIBRARY"
@@ -340,7 +340,7 @@ link_objs="$LINK_OBJI $link_objs $LINK_OBJN"
 for lib in $LINK_LIBS ; do
   link_libs="$link_libs -l$lib"
 done
-link_libs="$LINK_OBJL $link_libs"
+link_libs="$link_libs $LINK_OBJL"
 
 if [ $need_compile = 1 -a ! -f "$key_file" ] ; then
     need_analyze=1
