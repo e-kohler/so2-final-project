@@ -40,14 +40,14 @@ void Thread::constructor_epilogue(const Log_Addr & entry, unsigned int stack_siz
                     << "},context={b=" << _context
                     << "," << *_context << "}) => " << this << endl;
 
-    assert((_state != WAITING) && (_state != FINISHING)); // Invalid states
+    assert((_state != WAITING) && (_state != FINISHING)); // invalid states
 
     switch(_state) {
-        case RUNNING: assert(entry == __epos_app_entry); break;
+        case RUNNING: break;	// pointed by _running; not inserted in any queue
         case READY: _ready.insert(&_link); break;
         case SUSPENDED: _suspended.insert(&_link); break;
-        case WAITING: break;   // invalid state, for switch completion only
-        case FINISHING: break; // invalid state, for switch completion only
+        case WAITING: break;    // invalid state, for switch completion only
+        case FINISHING: break;	// invalid state, for switch completion only
     }
 
     if(preemptive && (_state == READY) && (_link.rank() != IDLE))

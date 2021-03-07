@@ -13,10 +13,20 @@ void Thread::init()
 {
     db<Init, Thread>(TRC) << "Thread::init()" << endl;
 
-    // If EPOS is a library, then adjust the application entry point to __epos_app_entry,
-    // which will directly call main(). In this case, _init will have already been called,
-    // before Init_Application to construct MAIN's global objects.
-    Thread::_running = new (SYSTEM) Thread(Thread::Configuration(Thread::RUNNING, Thread::MAIN), reinterpret_cast<int (*)()>(__epos_app_entry));
+    typedef int (Main)();
+
+    System_Info * si = System::info();
+    Main * main;
+
+    if(Traits<System>::multitask)
+        main = reinterpret_cast<Main *>(si->lm.app_entry);
+    else
+        // If EPOS is a library, then adjust the application entry point to __epos_app_entry,
+        // which will directly call main(). In this case, _init will have already been called,
+        // before Init_Application to construct MAIN's global objects.
+        main = reinterpret_cast<Main *>(__epos_app_entry);
+
+    Thread::_running = new (SYSTEM) Thread(Thread::Configuration(Thread::RUNNING, Thread::MAIN), main);
 
     // Idle thread creation does not cause rescheduling (see Thread::constructor_epilogue)
     new (SYSTEM) Thread(Thread::Configuration(Thread::READY, Thread::IDLE), &Thread::idle);
