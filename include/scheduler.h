@@ -25,27 +25,26 @@ class Scheduling_Criterion_Common
 public:
     // Priorities
     enum : int {
-        ISR    = -1000,
-            MAIN   = 0,
-            HIGH   = 1,
-            NORMAL = (unsigned(1) << (sizeof(int) * 8 - 1)) - 3,
-            LOW    = (unsigned(1) << (sizeof(int) * 8 - 1)) - 2,
-            IDLE   = (unsigned(1) << (sizeof(int) * 8 - 1)) - 1
+        MAIN   = 0,
+        HIGH   = 1,
+        NORMAL = (unsigned(1) << (sizeof(int) * 8 - 1)) - 3,
+        LOW    = (unsigned(1) << (sizeof(int) * 8 - 1)) - 2,
+        IDLE   = (unsigned(1) << (sizeof(int) * 8 - 1)) - 1
     };
 
     // Constructor helpers
     enum : unsigned int {
         SAME        = 0,
-            NOW         = 0,
-            UNKNOWN     = 0,
-            ANY         = -1U
+        NOW         = 0,
+        UNKNOWN     = 0,
+        ANY         = -1U
     };
 
     // Policy types
     enum : int {
         PERIODIC    = HIGH,
-            APERIODIC   = NORMAL,
-            SPORADIC    = NORMAL
+        APERIODIC   = NORMAL,
+        SPORADIC    = NORMAL
     };
 
     // Policy traits
@@ -69,12 +68,12 @@ public:
         TSC::Time_Stamp last_thread_dispatch;   // time stamp of last dispatch
 
         // Deadline Miss count - Used By Clerk
-        Alarm * alarm_times;            		// pointer to RT_Thread private alarm (for monitoring purposes)
-        unsigned int finished_jobs;     		// number of finished jobs given by the number of times alarm->p() was called for this thread
-        unsigned int missed_deadlines;  		// number of missed deadlines given by the number of finished jobs (finished_jobs) minus the number of dispatched jobs (alarm_times->times)
+        Alarm * alarm_times;                    // pointer to RT_Thread private alarm (for monitoring purposes)
+        unsigned int finished_jobs;             // number of finished jobs given by the number of times alarm->p() was called for this thread
+        unsigned int missed_deadlines;          // number of missed deadlines given by the number of finished jobs (finished_jobs) minus the number of dispatched jobs (alarm_times->times)
 
         // CPU Execution Time (capture ts)
-        static TSC::Time_Stamp _cpu_time[Traits<Build>::CPUS];				// accumulated CPU time in the current hyperperiod for each CPU
+        static TSC::Time_Stamp _cpu_time[Traits<Build>::CPUS];              // accumulated CPU time in the current hyperperiod for each CPU
         static TSC::Time_Stamp _last_dispatch_time[Traits<Build>::CPUS];    // time Stamp of last dispatch in each CPU
         static TSC::Time_Stamp _last_activation_time;                       // global time stamp of the last heuristic activation
     };

@@ -46,7 +46,6 @@ public:
     // Thread Scheduling Criterion
     typedef Traits<Thread>::Criterion Criterion;
     enum {
-        ISR     = Criterion::ISR,
         HIGH    = Criterion::HIGH,
         NORMAL  = Criterion::NORMAL,
         LOW     = Criterion::LOW,
