@@ -17,7 +17,7 @@ void IC::entry()
     ASM("        .align 4                                               \n"
         "                                                               \n"
         "# Save context                                                 \n"
-        "        addi        sp,     sp,   -140                         \n"          // 32 regs of 4 bytes each = 128 Bytes
+        "        addi        sp,     sp,   -136                         \n"          // 32 regs of 4 bytes each = 128 Bytes
         "        sw          x1,   4(sp)                                \n"
         "        sw          x2,   8(sp)                                \n"
         "        sw          x3,  12(sp)                                \n"
@@ -49,12 +49,10 @@ void IC::entry()
         "        sw         x29, 116(sp)                                \n"
         "        sw         x30, 120(sp)                                \n"
         "        sw         x31, 124(sp)                                \n"
-        "        csrr       x31, mie                                    \n"
-        "        sw         x31, 128(sp)                                \n"
         "        csrr       x31, mstatus                                \n"
-        "        sw         x31, 132(sp)                                \n"
+        "        sw         x31, 128(sp)                                \n"
         "        csrr       x31, mepc                                   \n"
-        "        sw         x31, 136(sp)                                \n"
+        "        sw         x31, 132(sp)                                \n"
         "        la          ra, .restore                               \n" // Set LR to restore context before returning
         "        j          %0                                          \n"
         "                                                               \n"
@@ -90,14 +88,12 @@ void IC::entry()
         "        lw         x28, 112(sp)                                \n"
         "        lw         x29, 116(sp)                                \n"
         "        lw         x30, 120(sp)                                \n"
-        "        lw         x31, 124(sp)                                \n"
         "        lw         x31, 128(sp)                                \n"
-        "        csrs       mie, x31                                    \n"
+        "        csrw   mstatus, x31                                    \n"
         "        lw         x31, 132(sp)                                \n"
-        "        csrs   mstatus, x31                                    \n"
-        "        lw         x31, 136(sp)                                \n"
         "        csrw      mepc, x31                                    \n"
-        "        addi        sp, sp,    140                             \n"
+        "        lw         x31, 124(sp)                                \n"
+        "        addi        sp, sp,    136                             \n"
         "        mret                                                   \n" : : "i"(&dispatch));
 }
 
@@ -108,6 +104,7 @@ void IC::dispatch()
     if((id != INT_SYS_TIMER) || Traits<IC>::hysterically_debugged)
         db<IC>(TRC) << "IC::dispatch(i=" << id << ")" << endl;
 
+    // IPIs must be acknowledged before calling the ISR, because in RISC-V, set bits will keep on triggering interrupts until they are cleared
     if(id == INT_RESCHEDULER)
         IC::ipi_eoi(id);
 

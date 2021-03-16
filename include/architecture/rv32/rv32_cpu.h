@@ -27,6 +27,7 @@ public:
 
     // Control and Status Register (CSR) for machine mode
     // Status Register (mstatus)
+    typedef Reg32 Flags;
     enum {
         MIE             = 1 << 3,      // Machine Interrupts Enabled
         SIE             = 1 << 1,      // Supervisor Interrupts Enabled
@@ -35,8 +36,7 @@ public:
         MPP             = 3 << 11,     // Machine Previous Privilege
         SPP             = 3 << 12,     // Supervisor Previous Privilege
         MPRV            = 1 << 17,     // Memory Priviledge
-        TVM             = 1 << 20,     // Trap Virtual Memory //not allow MMU
-        MSTATUS_DEFAULTS= (MIE | MPIE | MPP)
+        TVM             = 1 << 20      // Trap Virtual Memory //not allow MMU
     };
 
     // Interrupt-Enable, Interrupt-Pending and Machine Cause Registers (mie, mip, and mcause when interrupt bit is set)
@@ -70,7 +70,8 @@ public:
     class Context
     {
     public:
-        Context(const Log_Addr & entry, const Log_Addr & exit): _pc(entry), _x1(exit) {
+        // Contexts are loaded with mret, which gets pc from mepc and updates some bits of mstatus, that's why _st is initialized with MPIE and MPP
+        Context(const Log_Addr & entry, const Log_Addr & exit): _st(MPIE | MPP), _pc(entry), _x1(exit) {
             if(Traits<Build>::hysterically_debugged || Traits<Thread>::trace_idle) {
                                                                         _x5 =  5;  _x6 =  6;  _x7 =  7;  _x8 =  8;  _x9 =  9;
                 _x10 = 10; _x11 = 11; _x12 = 12; _x13 = 13; _x14 = 14; _x15 = 15; _x16 = 16; _x17 = 17; _x18 = 18; _x19 = 19;
@@ -84,8 +85,9 @@ public:
 
         friend Debug & operator<<(Debug & db, const Context & c) {
             db << hex
-               << "{pc="   << c._pc
-               << ",sp="   << &c
+               << "{sp="   << &c
+               << ",st="   << c._st
+			   << ",pc="   << c._pc
                << ",lr="   << c._x1
                << ",x5="   << c._x5
                << ",x6="   << c._x6
@@ -119,6 +121,7 @@ public:
         }
 
     public:
+        Reg32  _st; // mstatus
         Reg32  _pc; // pc
     //  Reg32  _x0; // zero
         Reg32  _x1; // ra, ABI Link Register
@@ -164,7 +167,9 @@ public:
     CPU() {};
 
 public:
-    // Register access
+    static Reg32 flags() { return mstatus(); }
+    static void flags(const Flags st) { mstatus(st); }
+
     static Reg32 sp() {
         Reg32 value;
         ASM("mv %0, sp" : "=r"(value) :);
@@ -283,7 +288,7 @@ public:
 
     static void smp_barrier(unsigned long cores = cores()) { CPU_Common::smp_barrier<&finc>(cores, id()); }
 
-    static void int_enable() { ASM("csrs mstatus, %0" : :"r"(MSTATUS_DEFAULTS)); }
+    static void int_enable() { ASM("csrs mstatus, %0" : :"r"(MIE)); }
     static void int_disable() { ASM("csrc mstatus, %0" : :"r"(MIE)); }
     static bool int_enabled() { return (mstatus() & MIE) ; }
     static bool int_disabled() { return !int_enabled(); }

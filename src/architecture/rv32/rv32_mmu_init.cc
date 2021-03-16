@@ -2,9 +2,9 @@
 
 #include <architecture/mmu.h>
 
-extern "C" void * _edata;
-extern "C" void * __bss_start;
-extern "C" void * _end;
+extern "C" char _edata;
+extern "C" char __bss_start;
+extern "C" char _end;
 
 __BEGIN_SYS
 
