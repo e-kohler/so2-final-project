@@ -22,9 +22,9 @@ public:
         // Initialize Application's heap
         db<Init>(INF) << "Initializing application's heap: " << endl;
         if(Traits<System>::multiheap) { // heap in data segment arranged by SETUP
-            Segment * tmp = reinterpret_cast<Segment *>(&System::_preheap[0]);
+            Segment * tmp = reinterpret_cast<Segment *>(&Application::_preheap[0]);
             Application::_heap_segment = new (tmp) Segment(HEAP_SIZE, Segment::Flags::APP);
-            Application::_heap = new (&Application::_preheap[0]) Heap(Application::_heap_segment->phy_address(), Application::_heap_segment->size());
+            Application::_heap = new (&Application::_preheap[sizeof(Segment)]) Heap(Application::_heap_segment->phy_address(), Application::_heap_segment->size());
         } else
             for(unsigned int frames = MMU::allocable(); frames; frames = MMU::allocable())
                 System::_heap->free(MMU::alloc(frames), frames * sizeof(MMU::Page));
