@@ -145,6 +145,17 @@ public:
     FCFS(int p = NORMAL, Tn & ... an);
 };
 
+// Our implementation of Rate Monotonic
+class RM: public Priority
+{
+public:
+    static const bool timed = false;
+    static const bool dynamic = false;
+    static const bool preemptive = true;
+
+public:
+    RM(int period): Priority(period) {}
+};
 
 // Real-time Algorithms
 class Real_Time_Scheduler_Common: public Priority
@@ -164,19 +175,19 @@ public:
     Microsecond _capacity;
 };
 
-// Rate Monotonic
-class RM:public Real_Time_Scheduler_Common
-{
-public:
-    static const bool timed = false;
-    static const bool dynamic = false;
-    static const bool preemptive = true;
+// // Rate Monotonic
+// class RM:public Real_Time_Scheduler_Common
+// {
+// public:
+//     static const bool timed = false;
+//     static const bool dynamic = false;
+//     static const bool preemptive = true;
 
-public:
-    RM(int p = APERIODIC): Real_Time_Scheduler_Common(p) {}
-    RM(const Microsecond & d, const Microsecond & p = SAME, const Microsecond & c = UNKNOWN, unsigned int cpu = ANY)
-    : Real_Time_Scheduler_Common(p ? p : d, d, p, c) {}
-};
+// public:
+//     RM(int p = APERIODIC): Real_Time_Scheduler_Common(p) {}
+//     RM(const Microsecond & d, const Microsecond & p = SAME, const Microsecond & c = UNKNOWN, unsigned int cpu = ANY)
+//     : Real_Time_Scheduler_Common(p ? p : d, d, p, c) {}
+// };
 
 // Deadline Monotonic
 class DM: public Real_Time_Scheduler_Common

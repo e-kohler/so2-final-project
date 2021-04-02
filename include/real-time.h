@@ -26,10 +26,10 @@ class Periodic_Thread: public Thread
 {
 public:
     enum {
-        SAME    = Real_Time_Scheduler_Common::SAME,
-        NOW     = Real_Time_Scheduler_Common::NOW,
-        UNKNOWN = Real_Time_Scheduler_Common::UNKNOWN,
-        ANY     = Real_Time_Scheduler_Common::ANY
+        SAME    = 0,
+        NOW     = 0,
+        UNKNOWN = 0,
+        ANY     = -1U
     };
 
 protected:
@@ -74,9 +74,9 @@ public:
 
 public:
     template<typename ... Tn>
-    Periodic_Thread(const Microsecond & p, int (* entry)(Tn ...), Tn ... an)
+    Periodic_Thread(const Microsecond & p, const unsigned int n, int (* entry)(Tn ...), Tn ... an)
     : Thread(Thread::Configuration(SUSPENDED, Criterion(p)), entry, an ...),
-      _semaphore(0), _handler(&_semaphore, this), _alarm(p, &_handler, INFINITE) { resume(); }
+      _semaphore(0), _handler(&_semaphore, this), _alarm(p, &_handler, n) { resume(); }
 
     template<typename ... Tn>
     Periodic_Thread(const Configuration & conf, int (* entry)(Tn ...), Tn ... an)
