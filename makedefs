@@ -218,7 +218,7 @@ MACH_LD_FLAGS           := $($(MACH)_LD_FLAGS)
 MACH_CODE_NAME          := $($(MACH)_CODE_NAME)
 MACH_DATA_NAME          := $($(MACH)_DATA_NAME)
 MACH_EMULATOR           := $($(MACH)_EMULATOR)
-MACH_DEBUGGER           := $(TERM) $($(MACH)_DEBUGGER) -ex "target remote:1235" -ex "set confirm off"
+MACH_DEBUGGER           := $(TERM) $($(MACH)_DEBUGGER) -ex "target remote:1270" -ex "set confirm off"
 MACH_FLASHER            := $($(MACH)_FLASHER)
 MACH_MAGIC              := $($(MACH)_MAGIC)
 MACH_IMGSUFF            := $($(MACH)_IMG_SUFFIX)
@@ -227,7 +227,7 @@ ifeq ($(DEBUG),1)
 MACH_CC_FLAGS		:= -g -feliminate-unused-debug-symbols $(MACH_CC_FLAGS)
 MACH_CXX_FLAGS          := -g -feliminate-unused-debug-symbols $(MACH_CXX_FLAGS)
 MACH_AS_FLAGS		:= -g $(MACH_AS_FLAGS)
-MACH_EMULATOR           := $(subst -m ,-gdb tcp::1235 -S -m ,$(MACH_EMULATOR))
+MACH_EMULATOR           := $(subst -m ,-gdb tcp::1270 -S -m ,$(MACH_EMULATOR))
 endif
 
 # Architecture specifics

@@ -76,7 +76,7 @@ public:
 
     static void enable() {
         db<IC>(TRC) << "IC::enable()" << endl;
-        CPU::mie(CPU::MSI | CPU::MTI | CPU::MEI);
+        CPU::sie(CPU::SSI | CPU::STI | CPU::SEI);
     }
 
     static void enable(Interrupt_Id i) {
@@ -88,7 +88,7 @@ public:
 
     static void disable() {
         db<IC>(TRC) << "IC::disable()" << endl;
-        CPU::mie_clear(CPU::MSI | CPU::MTI | CPU::MEI);
+        CPU::sie_clear(CPU::SSI | CPU::STI | CPU::SEI);
     }
 
     static void disable(Interrupt_Id i) {
@@ -134,6 +134,8 @@ private:
     static void entry();
 
     static void init();
+
+    static void forward();
 
     static volatile CPU::Reg32 & reg(unsigned int o) { return reinterpret_cast<volatile CPU::Reg32 *>(Memory_Map::CLINT_BASE)[o / sizeof(CPU::Reg32)]; }
 

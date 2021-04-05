@@ -3,7 +3,8 @@
 #include <machine/machine.h>
 #include <machine/ic.h>
 
-extern "C" { void _int_entry() __attribute__ ((alias("_ZN4EPOS1S2IC5entryEv"))); }
+extern "C" { void _int_entry() __attribute__ ((nothrow, alias("_ZN4EPOS1S2IC5entryEv"))); }
+extern "C" { void _int_m2s() __attribute__ ((nothrow, alias("_ZN4EPOS1S2IC7forwardEv"))); }
 
 __BEGIN_SYS
 
@@ -49,9 +50,9 @@ void IC::entry()
         "        sw         x29, 116(sp)                                \n"
         "        sw         x30, 120(sp)                                \n"
         "        sw         x31, 124(sp)                                \n"
-        "        csrr       x31, mstatus                                \n"
+        "        csrr       x31, sstatus                                \n"
         "        sw         x31, 128(sp)                                \n"
-        "        csrr       x31, mepc                                   \n"
+        "        csrr       x31, sepc                                   \n"
         "        sw         x31, 132(sp)                                \n"
         "        la          ra, .restore                               \n" // Set LR to restore context before returning
         "        j          %0                                          \n"
@@ -89,12 +90,12 @@ void IC::entry()
         "        lw         x29, 116(sp)                                \n"
         "        lw         x30, 120(sp)                                \n"
         "        lw         x31, 128(sp)                                \n"
-        "        csrw   mstatus, x31                                    \n"
+        "        csrw   sstatus, x31                                    \n"
         "        lw         x31, 132(sp)                                \n"
-        "        csrw      mepc, x31                                    \n"
+        "        csrw      sepc, x31                                    \n"
         "        lw         x31, 124(sp)                                \n"
         "        addi        sp, sp,    136                             \n"
-        "        mret                                                   \n" : : "i"(&dispatch));
+        "        sret                                                   \n" : : "i"(&dispatch));
 }
 
 void IC::dispatch()
@@ -120,19 +121,93 @@ void IC::int_not(Interrupt_Id id)
         db<IC>(WRN) << endl;
 }
 
+void IC::forward() 
+{
+     // saving and restoring registers since we are making more than just executing mret
+    ASM("        .align 4                                               \n"
+        "                                                               \n"
+        "# Save context                                                 \n"
+        "        addi        sp,     sp,   -124                         \n"          // 32 regs of 4 bytes each = 128 Bytes
+        "        sw          x1,   4(sp)                                \n"
+        "        sw          x2,   8(sp)                                \n"
+        "        sw          x3,  12(sp)                                \n"
+        "        sw          x5,  16(sp)                                \n"
+        "        sw          x6,  20(sp)                                \n"
+        "        sw          x7,  24(sp)                                \n"
+        "        sw          x8,  28(sp)                                \n"
+        "        sw          x9,  32(sp)                                \n"
+        "        sw         x10,  36(sp)                                \n"
+        "        sw         x11,  40(sp)                                \n"
+        "        sw         x12,  44(sp)                                \n"
+        "        sw         x13,  48(sp)                                \n"
+        "        sw         x14,  52(sp)                                \n"
+        "        sw         x15,  56(sp)                                \n"
+        "        sw         x16,  60(sp)                                \n"
+        "        sw         x17,  64(sp)                                \n"
+        "        sw         x18,  68(sp)                                \n"
+        "        sw         x19,  72(sp)                                \n"
+        "        sw         x20,  76(sp)                                \n"
+        "        sw         x21,  80(sp)                                \n"
+        "        sw         x22,  84(sp)                                \n"
+        "        sw         x23,  88(sp)                                \n"
+        "        sw         x24,  92(sp)                                \n"
+        "        sw         x25,  96(sp)                                \n"
+        "        sw         x26, 100(sp)                                \n"
+        "        sw         x27, 104(sp)                                \n"
+        "        sw         x28, 108(sp)                                \n"
+        "        sw         x29, 112(sp)                                \n"
+        "        sw         x30, 116(sp)                                \n"
+        "        sw         x31, 120(sp)                                \n");
+
+    Reg id = CPU::mcause();
+    if(id & CLINT::INTERRUPT) {
+        if((id &  IC::INT_MASK) == CLINT::IRQ_MAC_TIMER) {
+            CPU::sip(CPU::STI);
+            CPU::sie(CPU::STI);
+        }
+    }
+
+    ASM("# Restore context                                              \n"
+        "        lw          x1,   4(sp)                                \n"
+        "        lw          x2,   8(sp)                                \n"
+        "        lw          x3,  12(sp)                                \n"
+        "        lw          x5,  16(sp)                                \n"
+        "        lw          x6,  20(sp)                                \n"
+        "        lw          x7,  24(sp)                                \n"
+        "        lw          x8,  28(sp)                                \n"
+        "        lw          x9,  32(sp)                                \n"
+        "        lw         x10,  36(sp)                                \n"
+        "        lw         x11,  40(sp)                                \n"
+        "        lw         x12,  44(sp)                                \n"
+        "        lw         x13,  48(sp)                                \n"
+        "        lw         x14,  52(sp)                                \n"
+        "        lw         x15,  56(sp)                                \n"
+        "        lw         x16,  60(sp)                                \n"
+        "        lw         x17,  64(sp)                                \n"
+        "        lw         x18,  68(sp)                                \n"
+        "        lw         x19,  72(sp)                                \n"
+        "        lw         x20,  76(sp)                                \n"
+        "        lw         x21,  80(sp)                                \n"
+        "        lw         x22,  84(sp)                                \n"
+        "        lw         x23,  88(sp)                                \n"
+        "        lw         x24,  92(sp)                                \n"
+        "        lw         x25,  96(sp)                                \n"
+        "        lw         x26, 100(sp)                                \n"
+        "        lw         x27, 104(sp)                                \n"
+        "        lw         x28, 108(sp)                                \n"
+        "        lw         x29, 112(sp)                                \n"
+        "        lw         x30, 116(sp)                                \n"
+        "        lw         x31, 120(sp)                                \n"
+        "        addi        sp, sp,    124                             \n"
+        "        mret                                                   \n");
+}
+
 void IC::exception(Interrupt_Id id)
 {
-    CPU::Reg mstatus = CPU::mstatus();
-    CPU::Reg mcause = CPU::mcause();
-    CPU::Reg mhartid = CPU::id();
-    CPU::Reg mepc;
-    ASM("csrr %0, mepc" : "=r"(mepc) : :);
     CPU::Reg sepc;
     ASM("csrr %0, sepc" : "=r"(sepc) : :);
-    CPU::Reg mtval;
-    ASM("csrr %0, mtval" : "=r"(mtval) : :);
-
-    db<IC>(WRN) << "IC::Exception(" << id << ") => {" << hex << "mstatus=" << mstatus << ",mcause=" << mcause << ",mhartid=" << mhartid << ",mepc=" << hex << mepc << ",sepc=" << sepc << ",mtval=" << mtval << "}" << dec;
+    CPU::Reg stval;
+    ASM("csrr %0, stval" : "=r"(stval) : :);
 
     switch(id) {
         case 0: // unaligned Instruction
