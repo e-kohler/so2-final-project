@@ -1,4 +1,4 @@
-// EPOS RISC-V Program Starter
+// EPOS RISC-V 32 Program Starter
 
         .file "rv32_crt0.S"
 

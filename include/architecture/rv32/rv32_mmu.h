@@ -1,7 +1,7 @@
-// EPOS-- RISC-V 32 MMU Mediator Declarations
+// EPOS RISC-V 32 MMU Mediator Declarations
 
-#ifndef __riscv32_mmu_h
-#define __riscv32_mmu_h
+#ifndef __rv32_mmu_h
+#define __rv32_mmu_h
 
 #include <system/memory_map.h>
 #include <utility/string.h>

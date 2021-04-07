@@ -12,11 +12,15 @@ __BEGIN_SYS
 // Core Local Interrupter (CLINT)
 class CLINT
 {
+private:
+    typedef CPU::Reg Reg;
+    typedef CPU::Phy_Addr Phy_Addr;
+
 public:
     static const unsigned int IRQS = 16;
 
     // Interrupts (mcause with interrupt = 1)
-    enum {
+    enum : unsigned int {
         IRQ_USR_SOFT            = 0,
         IRQ_SUP_SOFT            = 1,
         IRQ_MAC_SOFT            = 3,
@@ -26,22 +30,43 @@ public:
         IRQ_USR_EXT             = 8,
         IRQ_SUP_EXT             = 9,
         IRQ_MAC_EXT             = 11,
-        INTERRUPT               = 1 << 31
+        INTERRUPT               = 1UL << 31,
+        INT_MASK                = ~INTERRUPT
+
     };
 
     // Registers offsets from CLINT_BASE
     enum {                                // Description
-        MSIP                    = 0x0000, // Generate machine mode software interrupts
+        MSIP                    = 0x0000, // Generate machine mode software interrupts (IPIs); each HART is offseted by 4 bytes from MSIP
         MTIMECMP                = 0x4000, // Compare (32-bit, per hart register)
         MTIME                   = 0xbff8, // Counter (lower 32 bits, shared by all harts)
         MTIMEH                  = 0xbffc, // Counter (upper 32 bits, shared by all harts)
         MSIP_CORE_OFFSET        = 4,      // Offset in bytes from MSIP for each hart's software interrupt trigger register
         MTIMECMP_CORE_OFFSET    = 8       // Offset in bytes from MTIMECMP for each hart's compare register
     };
+
+    // MTVEC modes
+    enum Mode {
+        DIRECT  = 0,
+        INDEXED = 1
+    };
+
+public:
+    static void mtvec(Mode mode, Phy_Addr base) {
+    	Reg tmp = (base & 0xfffffffc) | (Reg(mode) & 0x3);
+        ASM("csrw mtvec, %0" : : "r"(tmp) : "cc");
+    }
+
+    static Reg mtvec() {
+        Reg value;
+        ASM("csrr %0, mtvec" : "=r"(value) : : );
+        return value;
+    }
 };
 
 class IC: private IC_Common, private CLINT
 {
+    friend class Setup;
     friend class Machine;
 
 private:
@@ -56,8 +81,7 @@ public:
     enum {
         HARD_INT        = CPU::EXCEPTIONS,
         INT_SYS_TIMER   = HARD_INT + IRQ_MAC_TIMER,
-        INT_RESCHEDULER = HARD_INT + IRQ_MAC_SOFT, // An IPI is mapped to the machine with mcause set to IRQ_MAC_SOFT
-        INT_MASK        = CPU::Reg32(1 << 31) - 1
+        INT_RESCHEDULER = HARD_INT + IRQ_MAC_SOFT  // an IPI is mapped to the machine with mcause set to IRQ_MAC_SOFT
     };
 
 public:
@@ -88,7 +112,7 @@ public:
 
     static void disable() {
         db<IC>(TRC) << "IC::disable()" << endl;
-        CPU::mie_clear(CPU::MSI | CPU::MTI | CPU::MEI);
+        CPU::miec(CPU::MSI | CPU::MTI | CPU::MEI);
     }
 
     static void disable(Interrupt_Id i) {
@@ -107,15 +131,14 @@ public:
             return (id & INT_MASK);
     }
 
-    int irq2int(int i) { return i + HARD_INT; }
+    static int irq2int(int i) { return i + HARD_INT; }
 
-    int int2irq(int i) { return i - HARD_INT; }
+    static int int2irq(int i) { return i - HARD_INT; }
 
     static void ipi(unsigned int cpu, Interrupt_Id i) {
         db<IC>(TRC) << "IC::ipi(cpu=" << cpu << ",int=" << i << ")" << endl;
         assert(i < INTS);
-        i -= HARD_INT;
-        reg(MSIP + cpu * MSIP_CORE_OFFSET) = 1 << i;
+        reg(MSIP + cpu * MSIP_CORE_OFFSET) = 1;
     }
 
     static void ipi_eoi(Interrupt_Id i) {
@@ -131,7 +154,7 @@ private:
     static void exception(Interrupt_Id i);
 
     // Physical handler
-    static void entry();
+    static void entry() __attribute((naked, aligned(4)));
 
     static void init();
 

@@ -76,7 +76,7 @@ public:
     static unsigned int directory(const Log_Addr & addr) { return addr >> DIRECTORY_SHIFT; }
 
     static Log_Addr align_page(const Log_Addr & addr) { return (addr + sizeof(Page) - 1) & ~(sizeof(Page) - 1); }
-    static Log_Addr align_directory(const Log_Addr & addr) { return (addr + sizeof(Page) * sizeof(Page) - 1) &  ~(sizeof(Page) * sizeof(Page) - 1); }
+    static Log_Addr align_directory(const Log_Addr & addr) { return (addr + PT_ENTRIES * sizeof(Page) - 1) &  ~(PT_ENTRIES * sizeof(Page) - 1); }
 };
 
 __END_SYS

@@ -12,10 +12,9 @@ unsigned int CPU::_bus_clock;
 // Class methods
 void CPU::Context::save() volatile
 {
-    ASM("       csrr     x4,  mstatus           \n"
-        "       sw       x4, -120(sp)           \n"     // push st
-        "       la       x4,      pc            \n"
-        "       sw       x4, -116(sp)           \n"     // push pc
+    ASM("       csrr     x3,  mstatus           \n"
+        "       sw       x3, -120(sp)           \n"     // push st
+        "       sw       x1, -116(sp)           \n"     // push ra as pc
         "       sw       x1, -112(sp)           \n"     // push ra
         "       sw       x5, -108(sp)           \n"     // push x5-x31
         "       sw       x6, -104(sp)           \n"
@@ -84,10 +83,10 @@ void CPU::Context::load() const volatile
         "       lw      x29,  -12(sp)           \n"
         "       lw      x30,   -8(sp)           \n"
         "       lw      x31,   -4(sp)           \n"
-        "       lw       x4, -120(sp)           \n"     // pop st
-        "       csrs    mstatus,   x4           \n"     // set mstatus for mret
-        "       lw       x4, -116(sp)           \n"     // pop pc
-        "       csrw     mepc,     x4           \n"     // move pc to mepc for mret
+        "       lw       x3, -120(sp)           \n"     // pop st
+        "       csrs    mstatus,   x3           \n"     // set mstatus for mret
+        "       lw       x3, -116(sp)           \n"     // pop pc
+        "       csrw    mepc,      x3           \n"     // move pc to mepc for mret
         "       mret                            \n");
 }
 
@@ -160,12 +159,13 @@ void CPU::switch_context(Context ** o, Context * n)
         "       lw      x28,  -16(sp)           \n"
         "       lw      x29,  -12(sp)           \n"
         "       lw      x31, -120(sp)           \n"     // pop st
-        "       li      x30, 0b11 << 11         \n"     // set x30 as machine mode bits on MPP
+        "       li      x30,  3 << 11           \n"     // set x30 as machine mode bits on MPP
         "       or      x31, x31, x30           \n"     // machine mode on MPP is obligatory to avoid errors on mret
-        "       csrw     mstatus, x31           \n"
+        "       csrw    mstatus,  x31           \n"
         "       lw      x30,   -8(sp)           \n"
         "       lw      x31,   -4(sp)           \n"
         "       mret                            \n");
 }
 
 __END_SYS
+

@@ -14,9 +14,7 @@ __BEGIN_SYS
 class First_Object
 {
 public:
-    First_Object() {
-        Machine::pre_init(reinterpret_cast<System_Info *>(Memory_Map::SYS_INFO));
-    }
+    First_Object() { Machine::pre_init(System::info()); }
 };
 
 // Global objects

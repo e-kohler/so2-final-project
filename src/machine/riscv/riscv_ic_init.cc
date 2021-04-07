@@ -11,7 +11,7 @@ void IC::init()
 {
     db<Init, IC>(TRC) << "IC::init()" << endl;
 
-    CPU::int_disable(); // will be reenabled at Thread::init() by Context::load()
+    assert(CPU::int_disabled()); // will be reenabled at Thread::init() by Context::load()
 
     disable(); // will be enabled on demand as handlers are registered
 

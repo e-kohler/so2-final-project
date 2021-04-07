@@ -1,7 +1,7 @@
-// EPOS RISC-V Sifive Metainfo and Configuration
+// EPOS SiFive-E (RISC-V) Metainfo and Configuration
 
-#ifndef __riscv_sifive_traits_h
-#define __riscv_sifive_traits_h
+#ifndef __riscv_sifive_e_traits_h
+#define __riscv_sifive_e_traits_h
 
 #include <system/config.h>
 
@@ -10,51 +10,41 @@ __BEGIN_SYS
 class Machine_Common;
 template<> struct Traits<Machine_Common>: public Traits<Build> {};
 
-template <> struct Traits<Machine>: public Traits<Machine_Common>
+template<> struct Traits<Machine>: public Traits<Machine_Common>
 {
     static const bool cpus_use_local_timer      = false;
 
     static const unsigned int NOT_USED          = 0xffffffff;
     static const unsigned int CPUS              = Traits<Build>::CPUS;
 
+    // Physical Memory
+    static const unsigned int MEM_BASE          = 0x80000000;   // 2 GB
+    static const unsigned int MEM_TOP           = 0x87ffffff;   // 2 GB + 128 MB (128 MB of RAM)
+    static const unsigned int MIO_BASE          = 0x00000000;
+    static const unsigned int MIO_TOP           = 0x100081ff;
+
     // Boot Image
     static const unsigned int BOOT_LENGTH_MIN   = NOT_USED;
     static const unsigned int BOOT_LENGTH_MAX   = NOT_USED;
-
-    // Physical Memory
-    static const unsigned int MEM_BASE          = 0x80000000;
-    static const unsigned int VECTOR_TABLE      = NOT_USED;
-    static const unsigned int PAGE_TABLES       = NOT_USED; // No paging MMU
-    static const unsigned int MEM_TOP           = 0x87ffffff; // 128 MB
-    static const unsigned int BOOT_STACK        = 0x87ffffff;
+    static const unsigned int BOOT_STACK        = MEM_TOP;      // This will be used as the stack pointer, not the base
 
     // Logical Memory Map
-    static const unsigned int BOOT              = NOT_USED;
-    static const unsigned int SETUP             = NOT_USED;
-    static const unsigned int INIT              = NOT_USED;
+    static const unsigned int BOOT              = NOT_USED;     // Not needed for this machine
+    static const unsigned int IMAGE             = NOT_USED;     // The address for the boot image is defined, but not used in this machine
+    static const unsigned int SETUP             = NOT_USED;     // Only Library mode is supported
+    static const unsigned int INIT              = NOT_USED;     // Only Library mode is supported
 
-    static const unsigned int APP_LOW           = 0x80000000;
-    static const unsigned int APP_CODE          = 0x80000000;
-    static const unsigned int APP_DATA          = 0x80000000;
-    static const unsigned int APP_HIGH          = 0x87ffffff;
+    static const unsigned int APP_LOW           = MEM_BASE;
+    static const unsigned int APP_HIGH          = MEM_TOP;
 
-    static const unsigned int PHY_MEM           = NOT_USED; // No paging MMU
-    static const unsigned int IO_BASE           = NOT_USED; // No paging MMU
-    static const unsigned int IO_TOP            = NOT_USED; // No paging MMU
-
-    static const unsigned int SYS               = NOT_USED; // No paging MMU
-    static const unsigned int SYS_CODE          = NOT_USED; // No paging MMU
-    static const unsigned int SYS_DATA          = NOT_USED; // No paging MMU
-    static const unsigned int SYS_HEAP          = NOT_USED; // No paging MMU
-    static const unsigned int SYS_STACK         = NOT_USED; // No paging MMU
+    static const unsigned int PHY_MEM           = NOT_USED;     // Only Library mode is supported
+    static const unsigned int IO                = NOT_USED;     // Only Library mode is supported
+    static const unsigned int SYS               = NOT_USED;     // Only Library mode is supported
 
     // Default Sizes and Quantities
     static const unsigned int STACK_SIZE        = 16 * 1024;
     static const unsigned int HEAP_SIZE         = 16 * 1024 * 1024;
     static const unsigned int MAX_THREADS       = 16;
-
-    // Clocks
-    static const unsigned int TIMER_CLOCK       = 10000000;
 };
 
 template <> struct Traits<IC>: public Traits<Machine_Common>
@@ -70,6 +60,7 @@ template <> struct Traits<Timer>: public Traits<Machine_Common>
     static const bool debugged = hysterically_debugged;
 
     static const unsigned int UNITS = 1;
+    static const unsigned int CLOCK = 10000000;
 
     // Meaningful values for the timer frequency range from 100 to 10000 Hz. The
     // choice must respect the scheduler time-slice, i. e., it must be higher

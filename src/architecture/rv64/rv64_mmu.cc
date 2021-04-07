@@ -5,6 +5,7 @@
 __BEGIN_SYS
 
 // Class attributes
-MMU::List MMU::_free;
+MMU::List MMU::_free[colorful * COLORS + 1];
+MMU::Page_Directory * MMU::_master;
 
 __END_SYS

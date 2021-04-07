@@ -2,8 +2,9 @@
 
 #include <machine/machine.h>
 #include <machine/ic.h>
+#include <machine/timer.h>
 
-extern "C" { void _int_entry() __attribute__ ((alias("_ZN4EPOS1S2IC5entryEv"))); }
+extern "C" { void _int_entry() __attribute__ ((nothrow, alias("_ZN4EPOS1S2IC5entryEv"))); }
 
 __BEGIN_SYS
 
@@ -13,9 +14,7 @@ IC::Interrupt_Handler IC::_int_vector[IC::INTS];
 // Class methods
 void IC::entry()
 {
-    // Handle interrupts in machine mode
-    ASM("        .align 4                                               \n"
-        "                                                               \n"
+    ASM("                                                               \n"
         "# Save context                                                 \n"
         "        addi        sp,     sp,   -136                         \n"          // 32 regs of 4 bytes each = 128 Bytes
         "        sw          x1,   4(sp)                                \n"
@@ -104,9 +103,13 @@ void IC::dispatch()
     if((id != INT_SYS_TIMER) || Traits<IC>::hysterically_debugged)
         db<IC>(TRC) << "IC::dispatch(i=" << id << ")" << endl;
 
-    // IPIs must be acknowledged before calling the ISR, because in RISC-V, set bits will keep on triggering interrupts until they are cleared
+    // IPIs must be acknowledged before calling the ISR, because in RISC-V, MIP set bits will keep on triggering interrupts until they are cleared
     if(id == INT_RESCHEDULER)
         IC::ipi_eoi(id);
+
+    // MIP.MTI is a direct logic on (MTIME == MTIMECMP) and reseting the Timer clears it
+    if(id == INT_SYS_TIMER)
+        Timer::reset();
 
     _int_vector[id](id);
 }
@@ -125,43 +128,39 @@ void IC::exception(Interrupt_Id id)
     CPU::Reg mstatus = CPU::mstatus();
     CPU::Reg mcause = CPU::mcause();
     CPU::Reg mhartid = CPU::id();
-    CPU::Reg mepc;
-    ASM("csrr %0, mepc" : "=r"(mepc) : :);
-    CPU::Reg sepc;
-    ASM("csrr %0, sepc" : "=r"(sepc) : :);
-    CPU::Reg mtval;
-    ASM("csrr %0, mtval" : "=r"(mtval) : :);
+    CPU::Reg mepc = CPU::mepc();
+    CPU::Reg mtval = CPU::mtval();
 
-    db<IC>(WRN) << "IC::Exception(" << id << ") => {" << hex << "mstatus=" << mstatus << ",mcause=" << mcause << ",mhartid=" << mhartid << ",mepc=" << hex << mepc << ",sepc=" << sepc << ",mtval=" << mtval << "}" << dec;
+    db<IC,System>(WRN) << "IC::Exception(" << id << ") => {" << hex << "mstatus=" << mstatus << ",mcause=" << mcause << ",mhartid=" << mhartid << ",mepc=" << mepc << ",mtval=" << mtval << "}" << dec;
 
     switch(id) {
         case 0: // unaligned Instruction
         case 1: // instruction access failure
-            db<IC>(WRN) << " => prefetch abort";
+            db<IC, System>(WRN) << " => prefetch abort";
             break;
         case 2: // illegal instruction
-            db<IC>(WRN) << " => illegal instruction";
+            db<IC, System>(WRN) << " => illegal instruction";
             break;
         case 3: // Break Point
-            db<IC>(WRN) << " => break point";
+            db<IC, System>(WRN) << " => break point";
             break;
         case 4: // unaligned load address
         case 5: // load access failure
         case 6: // unaligned store address
         case 7: // store access failure
-            db<IC>(WRN) << " => unaligned data";
+            db<IC, System>(WRN) << " => unaligned data";
             break;
         case 8: // user-mode environment call
         case 9: // supervisor-mode environment call
         case 10: // reserved... not described
         case 11: // machine-mode environment call
-            db<IC>(WRN) << " => reserved";
+            db<IC, System>(WRN) << " => reserved";
             break;
         case 12: // Instruction Page Table failure
         case 13: // Load Page Table failure
         case 14: // reserved... not described
         case 15: // Store Page Table failure
-            db<IC>(WRN) << " => data abort";
+            db<IC, System>(WRN) << " => data abort";
             break;
         default:
             int_not(id);
@@ -169,9 +168,9 @@ void IC::exception(Interrupt_Id id)
     }
 
     if(Traits<Build>::hysterically_debugged)
-        db<IC>(ERR) << endl;
+        db<IC, System>(ERR) << endl;
     else
-        db<IC>(WRN) << endl;
+        db<IC, System>(WRN) << endl;
 }
 
 __END_SYS
