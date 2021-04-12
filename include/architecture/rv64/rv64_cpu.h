@@ -14,6 +14,7 @@ class CPU: protected CPU_Common
 
 private:
     static const bool smp = Traits<System>::multicore;
+    static const bool sup = Traits<System>::multitask;
 
 public:
     // CPU Native Data Types
@@ -76,7 +77,7 @@ public:
     {
     public:
         // Contexts are loaded with mret, which gets pc from mepc and updates some bits of mstatus, that's why _st is initialized with MPIE and MPP
-        Context(const Log_Addr & entry, const Log_Addr & exit): _st(SPIE | SPP_S), _pc(entry), _x1(exit) {
+        Context(const Log_Addr & entry, const Log_Addr & exit): _st(sup ? (SPIE | SPP_S) : (MPIE | MPP_M)), _pc(entry), _x1(exit) {
             if(Traits<Build>::hysterically_debugged || Traits<Thread>::trace_idle) {
                                                                         _x5 =  5;  _x6 =  6;  _x7 =  7;  _x8 =  8;  _x9 =  9;
                 _x10 = 10; _x11 = 11; _x12 = 12; _x13 = 13; _x14 = 14; _x15 = 15; _x16 = 16; _x17 = 17; _x18 = 18; _x19 = 19;
@@ -92,7 +93,7 @@ public:
             db << hex
                << "{sp="   << &c
                << ",st="   << c._st
-			   << ",pc="   << c._pc
+               << ",pc="   << c._pc
                << ",lr="   << c._x1
                << ",x5="   << c._x5
                << ",x6="   << c._x6
@@ -171,8 +172,8 @@ public:
 public:
     CPU() {};
 
-    static Reg32 flags() { return sstatus(); }
-    static void flags(const Flags st) { sstatus(st); }
+    static Reg32 flags() { return sup ? sstatus() : mstatus(); }
+    static void flags(const Flags st) { sup ? sstatus(st) : mstatus(st); }
 
     static Reg32 sp()      { Reg32 r; ASM("mv %0, sp" :  "=r"(r) :); return r; }
     static void sp(const Reg32 & r) { ASM("mv sp, %0" : : "r"(r) :); }
@@ -182,10 +183,10 @@ public:
 
     static Log_Addr ip() { Reg32 r; ASM("auipc %0, 0" : "=r"(r) :); return r; }
 
-    static Reg32 pdp() { return (satp() << 12); }
-    static void pdp(Reg32 pdp) { satp((1 << 31) | (pdp >> 12)); }
+    static Reg32 pdp() { return sup ? (satp() << 12) : 0; }
+    static void pdp(Reg32 pdp) { if(sup) satp((1 << 31) | (pdp >> 12)); }
 
-    static unsigned int id() { return tp(); }
+    static unsigned int id() { return sup ? tp() : mhartid(); }
 
     static unsigned int cores() { return Traits<Build>::CPUS; }
 
@@ -193,9 +194,9 @@ public:
     using CPU_Common::min_clock;
     using CPU_Common::max_clock;
 
-    static void int_enable() { sstatuss(SIE); }
-    static void int_disable() { sstatusc(SIE); }
-    static bool int_enabled() { return (sstatus() & SIE) ; }
+    static void int_enable() { sup ? sstatuss(SIE) : mstatuss(MIE); }
+    static void int_disable() { sup ? sstatusc(SIE) : mstatusc(MIE); }
+    static bool int_enabled() { return sup ? (sstatus() & SIE) : (mstatus() & MIE) ; }
     static bool int_disabled() { return !int_enabled(); }
 
     static void halt() { ASM("wfi"); }

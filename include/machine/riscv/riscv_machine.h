@@ -70,6 +70,10 @@ private:
         if(CPU::id() == 0)
             Display::init();
 
+        // Adjust stvec to point to _int_entry's logical address
+        if(Traits<System>::multitask)
+            CLINT::stvec(CLINT::DIRECT, &IC::entry);
+
         db<Init, Machine>(TRC) << "Machine::pre_init()" << endl;
 
         if(Traits<System>::multicore && (CPU::id() == 0))

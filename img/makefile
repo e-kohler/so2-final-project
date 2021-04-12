@@ -39,6 +39,10 @@ NETWORK	        := -netdev socket,id=vlan0,mcast=230.0.0.1:1234 -object filter-d
 # add the rest of the line to enable a dhcp server -netdev user,id=1,ipv6=off,restrict=on,net=10.0.1.0/24,host=10.0.1.1,dhcpstart=10.0.1.8
 PEER_NETWORK	:= -netdev socket,id=vlan0,mcast=230.0.0.1:1234 -object filter-dump,id=dump0,netdev=vlan0,file=$(PEER).pcap -device pcnet,id=eth0,netdev=vlan0,mac=56:34:12:00:54:09 -device pcnet,id=eth1,mac=00:00:00:00:00:02
 
+ifeq ($(MACH),riscv)
+ROM             := -device loader,file=$(IMAGE),addr=$(IMAGE_ADDR),force-raw=on
+endif
+ 		
 ifeq ($(NODES),1)
 
 all:		strip $(IMAGE)
@@ -67,13 +71,13 @@ run:		all run1
 run1:		eposcfg
 ifneq ($(STIME),0)
 ifeq ($(NODES),1)
-		timeout --foreground --kill-after=2s --signal=9 $(STIME)s $(EMULATOR)$(IMAGE) | $(TEE) $(OUTPUT)
+		timeout --foreground --kill-after=2s --signal=9 $(STIME)s $(EMULATOR)$(IMAGE) $(ROM) | $(TEE) $(OUTPUT)
 else
-		$(TERM) "timeout --foreground --kill-after=2s --signal=9 $(STIME)s $(EMULATOR)$(IMAGE) $(NETWORK) | $(TEE) $(OUTPUT) \
+		$(TERM) "timeout --foreground --kill-after=2s --signal=9 $(STIME)s $(EMULATOR)$(IMAGE) $(NETWORK) $(ROM) | $(TEE) $(OUTPUT) \
 		&& $(TCPDUMP) $(APPLICATION).pcap > $(APPLICATION).net \
 		&& read -p 'Press [Enter] key to close ...'" &
 		sleep 2
-		$(TERM) "timeout --foreground --kill-after=2s --signal=9 $(STIME)s $(EMULATOR)$(PEER_IMAGE) $(PEER_NETWORK) | $(TEE) $(PEER_OUTPUT) \
+		$(TERM) "timeout --foreground --kill-after=2s --signal=9 $(STIME)s $(EMULATOR)$(PEER_IMAGE) $(PEER_NETWORK) $(ROM) | $(TEE) $(PEER_OUTPUT) \
 		&& $(TCPDUMP) $(PEER).pcap > $(PEER).net \
 		&& read -p 'Press [Enter] key to close ...'" &
 endif
@@ -83,15 +87,15 @@ endif
 
 debug:		$(IMAGE)
 ifeq ($(NODES),1)
-		$(EMULATOR)$(IMAGE) | $(TEE) $(OUTPUT) &
+		$(EMULATOR)$(IMAGE) $(ROM) | $(TEE) $(OUTPUT) &
 		$(DEBUGGER)
 else
-		$(TERM) "$(EMULATOR)$(IMAGE) $(NETWORK) | $(TEE) $(OUTPUT) \
+		$(TERM) "$(EMULATOR)$(IMAGE) $(NETWORK) $(ROM) | $(TEE) $(OUTPUT) \
 		&& $(TCPDUMP) $(APPLICATION).pcap > $(APPLICATION).net \
 		&& read -p 'Press [Enter] key to close ...'" &
 		$(DEBUGGER) &
 		sleep 2
-		$(TERM) "$(PEER_EMULATOR)$(PEER_IMAGE) $(PEER_NETWORK) | $(TEE) $(PEER_OUTPUT) \
+		$(TERM) "$(PEER_EMULATOR)$(PEER_IMAGE) $(PEER_NETWORK) $(ROM) | $(TEE) $(PEER_OUTPUT) \
 		&& $(TCPDUMP) $(PEER).pcap > $(PEER).net \
 		&& read -p 'Press [Enter] key to close ...'" &
 		$(PEER_DEBUGGER) &

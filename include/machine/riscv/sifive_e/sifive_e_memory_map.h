@@ -1,11 +1,10 @@
 // EPOS SiFive-E (RISC-V) Memory Map
 
-#ifndef __riscv_memory_map_h
-#define __riscv_memory_map_h
+#ifndef __riscv_sifive_e_memory_map_h
+#define __riscv_sifive_e_memory_map_h
 
 
 #include <system/memory_map.h>
-
 
 __BEGIN_SYS
 
@@ -21,32 +20,36 @@ struct Memory_Map
         MIO_TOP         = Traits<Machine>::MIO_TOP,
         BOOT_STACK      = Traits<Machine>::BOOT_STACK,
 
+        // Memory-mapped devices
         TEST_BASE       = 0x00100000, // SiFive test engine
-        RTC_BASE        = 0x00101000, // goldfish_rtc
-        UART_BASE       = 0x10000000, // 16550A NS UART
-        CLINT_BASE      = 0x02000000, // Sifive CLINT
-        TIMER_BASE      = 0x02004000, // CLINT timer
+        RTC_BASE        = 0x00101000, // Goldfish RTC
+        UART_BASE       = 0x10000000, // NS16550A UART
+        CLINT_BASE      = 0x02000000, // SiFive CLINT
+        TIMER_BASE      = 0x02004000, // CLINT Timer
         PLIIC_CPU_BASE  = 0x0c000000, // SiFive PLIC
 
         // Logical Address Space
-        BOOT            = Traits<Machine>::BOOT,
+        BOOT            = Traits<System>::multitask ? Traits<Machine>::BOOT : NOT_USED,
         IMAGE           = Traits<Machine>::IMAGE,
-        SETUP           = Traits<Machine>::SETUP,
-        INIT            = Traits<Machine>::INIT,
+        SETUP           = Traits<System>::multitask ? Traits<Machine>::SETUP : NOT_USED,
+        INIT            = Traits<System>::multitask ? Traits<Machine>::INIT : NOT_USED,
 
-        APP_LOW         = Traits<Machine>::APP_LOW,
+        APP_LOW         = Traits<System>::multitask ? Traits<Machine>::APP_LOW : Traits<Machine>::SETUP,
         APP_CODE        = APP_LOW,
-        APP_DATA        = APP_LOW,
+        APP_DATA        = Traits<System>::multitask ? APP_LOW + 4 * 1024 * 1024 : APP_LOW,
         APP_HIGH        = Traits<Machine>::APP_HIGH,
 
         PHY_MEM         = Traits<Machine>::PHY_MEM,
         IO              = Traits<Machine>::IO,
+
         SYS             = Traits<Machine>::SYS,
-        SYS_INFO        = NOT_USED,
-        SYS_CODE        = NOT_USED,
-        SYS_DATA        = NOT_USED,
-        SYS_HEAP        = NOT_USED,
-        SYS_STACK       = NOT_USED
+        SYS_CODE        = Traits<System>::multitask ? SYS + 0x00000000 : NOT_USED,
+        SYS_INFO        = Traits<System>::multitask ? SYS + 0x00100000 : NOT_USED,
+        SYS_PT          = Traits<System>::multitask ? SYS + 0x00101000 : NOT_USED,
+        SYS_PD          = Traits<System>::multitask ? SYS + 0x00102000 : NOT_USED,
+        SYS_DATA        = Traits<System>::multitask ? SYS + 0x00103000 : NOT_USED,
+        SYS_STACK       = Traits<System>::multitask ? SYS + 0x00200000 : NOT_USED,
+        SYS_HEAP        = Traits<System>::multitask ? SYS + 0x00400000 : NOT_USED
     };
 };
 

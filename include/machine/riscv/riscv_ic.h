@@ -15,6 +15,7 @@ class CLINT
 private:
     typedef CPU::Reg Reg;
     typedef CPU::Phy_Addr Phy_Addr;
+    typedef CPU::Log_Addr Log_Addr;
 
 public:
     static const unsigned int IRQS = 16;
@@ -62,6 +63,17 @@ public:
         ASM("csrr %0, mtvec" : "=r"(value) : : );
         return value;
     }
+
+    static void stvec(Mode mode, Log_Addr base) {
+    	Reg tmp = (base & 0xfffffffc) | (Reg(mode) & 0x3);
+        ASM("csrw stvec, %0" : : "r"(tmp) : "cc");
+    }
+
+    static Reg stvec() {
+        Reg value;
+        ASM("csrr %0, stvec" : "=r"(value) : : );
+        return value;
+    }
 };
 
 class IC: private IC_Common, private CLINT
@@ -73,6 +85,7 @@ private:
     typedef CPU::Reg Reg;
 
     static const unsigned int INTS = CPU::EXCEPTIONS + IRQS;
+    static const bool sup = Traits<System>::multitask;
 
 public:
     using IC_Common::Interrupt_Id;
@@ -80,8 +93,8 @@ public:
 
     enum {
         HARD_INT        = CPU::EXCEPTIONS,
-        INT_SYS_TIMER   = HARD_INT + IRQ_MAC_TIMER,
-        INT_RESCHEDULER = HARD_INT + IRQ_MAC_SOFT  // an IPI is mapped to the machine with mcause set to IRQ_MAC_SOFT
+        INT_SYS_TIMER   = HARD_INT + (sup ? IRQ_SUP_TIMER : IRQ_MAC_TIMER),
+        INT_RESCHEDULER = HARD_INT + (sup ? IRQ_SUP_SOFT : IRQ_MAC_SOFT)  // an IPI is mapped to the machine with mcause set to IRQ_MAC_SOFT
     };
 
 public:
@@ -100,31 +113,37 @@ public:
 
     static void enable() {
         db<IC>(TRC) << "IC::enable()" << endl;
-        CPU::mie(CPU::MSI | CPU::MTI | CPU::MEI);
+        if(sup)
+            CPU::sie(CPU::SSI | CPU::STI | CPU::SEI);
+        else
+            CPU::mie(CPU::MSI | CPU::MTI | CPU::MEI);
     }
 
     static void enable(Interrupt_Id i) {
         db<IC>(TRC) << "IC::enable(int=" << i << ")" << endl;
         assert(i < INTS);
-        // FIXME: this should be done at PLIC
         enable();
+        // TODO: this should handle individual INTs and also be done at PLIC
     }
 
     static void disable() {
         db<IC>(TRC) << "IC::disable()" << endl;
-        CPU::miec(CPU::MSI | CPU::MTI | CPU::MEI);
-    }
+        if(sup)
+            CPU::siec(CPU::SSI | CPU::STI | CPU::SEI);
+        else
+            CPU::miec(CPU::MSI | CPU::MTI | CPU::MEI);
+}
 
     static void disable(Interrupt_Id i) {
         db<IC>(TRC) << "IC::disable(int=" << i << ")" << endl;
         assert(i < INTS);
-        // FIXME: this should be done at PLIC
         disable();
+        // TODO: this should handle individual INTs and also be done at PLIC
     }
 
     static Interrupt_Id int_id() {
         // Id is retrieved from mcause even if mip has the equivalent bit up, because only mcause can tell if it is an interrupt or an exception
-        Reg id = CPU::mcause();
+        Reg id = (sup) ? CPU::scause() : CPU::mcause();
         if(id & INTERRUPT)
             return (id & INT_MASK) + HARD_INT;
         else

@@ -5,7 +5,7 @@
 
 __BEGIN_SYS
 
-void MMU::init()
+void RV32S_MMU::init()
 {
     db<Init, MMU>(TRC) << "MMU::init()" << endl;
 
