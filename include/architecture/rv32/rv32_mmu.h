@@ -53,7 +53,7 @@ public:
         Page_Flags(unsigned int f) : _flags(f) {}
         Page_Flags(Flags f) : _flags(V | R | X |
                                      ((f & Flags::RW)  ? W  : 0) |
-                                     ((f & Flags::USR) ? U  : 0) |
+//                                     ((f & Flags::USR) ? U  : 0) |
                                      ((f & Flags::CWT) ? 0  : 0) |
                                      ((f & Flags::CD)  ? 0  : 0) |
                                      ((f & Flags::CT)  ? CT : 0) |
