@@ -11,35 +11,31 @@ __BEGIN_SYS
 class Init_System
 {
 private:
-    static const unsigned int HEAP_SIZE = Traits<System>::HEAP_SIZE;
+    static const unsigned int HEAP_SIZE = Traits<System>::multitask ? Traits<Machine>::HEAP_SIZE : Traits<System>::HEAP_SIZE;
 
 public:
     Init_System() {
         db<Init>(TRC) << "Init_System()" << endl;
 
-        // Initialize the processor
         db<Init>(INF) << "Initializing the CPU: " << endl;
         CPU::init();
         db<Init>(INF) << "done!" << endl;
 
-        // Initialize System's heap
         db<Init>(INF) << "Initializing system's heap: " << endl;
         if(Traits<System>::multiheap) {
             System::_heap_segment = new (&System::_preheap[0]) Segment(HEAP_SIZE, Segment::Flags::SYS);
             if(Memory_Map::SYS_HEAP == Traits<Machine>::NOT_USED)
-            	System::_heap = new (&System::_preheap[sizeof(Segment)]) Heap(Address_Space(MMU::current()).attach(System::_heap_segment), System::_heap_segment->size());
+                System::_heap = new (&System::_preheap[sizeof(Segment)]) Heap(Address_Space(MMU::current()).attach(System::_heap_segment), System::_heap_segment->size());
             else
                 System::_heap = new (&System::_preheap[sizeof(Segment)]) Heap(Address_Space(MMU::current()).attach(System::_heap_segment, Memory_Map::SYS_HEAP), System::_heap_segment->size());
         } else
             System::_heap = new (&System::_preheap[0]) Heap(MMU::alloc(MMU::pages(HEAP_SIZE)), HEAP_SIZE);
         db<Init>(INF) << "done!" << endl;
 
-        // Initialize the machine
         db<Init>(INF) << "Initializing the machine: " << endl;
         Machine::init();
         db<Init>(INF) << "done!" << endl;
 
-        // Initialize system abstractions
         db<Init>(INF) << "Initializing system abstractions: " << endl;
         System::init();
         db<Init>(INF) << "done!" << endl;

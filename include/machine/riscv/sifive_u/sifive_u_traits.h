@@ -21,29 +21,29 @@ template<> struct Traits<Machine>: public Traits<Machine_Common>
     static const unsigned int MEM_BASE          = 0x80000000;   // 2 GB
     static const unsigned int MEM_TOP           = 0x87ffffff;   // 2 GB + 128 MB (128 MB of RAM)
     static const unsigned int MIO_BASE          = 0x00000000;
-    static const unsigned int MIO_TOP           = 0x100081ff;
+    static const unsigned int MIO_TOP           = 0x1fffffff;   // 512 MB (max 512 MB of MIO)
 
     // Boot Image
     static const unsigned int BOOT_LENGTH_MIN   = NOT_USED;
     static const unsigned int BOOT_LENGTH_MAX   = NOT_USED;
-    static const unsigned int BOOT_STACK        = 0x80ffffff;   // This will be used as the stack pointer, not the base
+    static const unsigned int BOOT_STACK        = 0x800fffff;   // APP_LOW - 1 (will be used as the stack pointer, not the base)
 
     // Logical Memory Map
     static const unsigned int BOOT              = NOT_USED;     // Not needed for this machine
-    static const unsigned int IMAGE             = 0x81000000;   // 2 GB + 16 MB (will be part of the free memory at INIT)
-    static const unsigned int SETUP             = 0x80000000;   // 2 GB (will be part of the free memory at INIT, using a logical address identical to physical eliminate SETUP relocation)
-    static const unsigned int INIT              = 0x82000000;   // 2 GB + 48 MB (will be part of the free memory at INIT)
+    static const unsigned int IMAGE             = 0x87000000;   // MEM_TOP - 16 MB (will be part of the free memory at INIT, defines the maximum image size)
+    static const unsigned int SETUP             = 0x80000000;   // MEM_BASE (will be part of the free memory at INIT, using a logical address identical to physical eliminate SETUP relocation)
+    static const unsigned int INIT              = 0x87f00000;   // MEM_TOP - 1 MB (will be part of the free memory at INIT)
 
-    static const unsigned int APP_LOW           = 0x20000000;   // 512 MB
-    static const unsigned int APP_HIGH          = 0x7fffffff;   // 512 MB + 1536 MB
+    static const unsigned int APP_LOW           = 0x80400000;   // 2 GB + 4 MB
+    static const unsigned int APP_HIGH          = 0xdfffffff;   // 2 GB + 1536 MB (max 1535 MB of APP)
 
-    static const unsigned int PHY_MEM           = 0x80000000;   // 2 GB (max 1536 MB of RAM)
-    static const unsigned int IO                = 0x00000000;
-    static const unsigned int SYS               = 0xffc00000;   // 4 GB - 4 MB
+    static const unsigned int PHY_MEM           = 0x20000000;   // 512 MB (max 1536 MB of RAM)
+    static const unsigned int IO                = 0x00000000;   // 0 (max 512 MB of IO = MIO_TOP - MIO_BASE)
+    static const unsigned int SYS               = 0xff800000;   // 4 GB - 8 MB
 
     // Default Sizes and Quantities
     static const unsigned int STACK_SIZE        = 16 * 1024;
-    static const unsigned int HEAP_SIZE         = 16 * 1024 * 1024;
+    static const unsigned int HEAP_SIZE         = 4 * 1024 * 1024;
     static const unsigned int MAX_THREADS       = 16;
 };
 

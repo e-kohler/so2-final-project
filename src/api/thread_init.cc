@@ -21,10 +21,11 @@ void Thread::init()
     if(Traits<System>::multitask)
         main = reinterpret_cast<Main *>(si->lm.app_entry);
     else
-        // If EPOS is a library, then adjust the application entry point to __epos_app_entry,
-        // which will directly call main(). In this case, _init will have already been called,
-        // before Init_Application to construct MAIN's global objects.
+        // If EPOS is a library, then adjust the application entry point to __epos_app_entry, which will directly call main().
+        // In this case, _init will have already been called, before Init_Application to construct MAIN's global objects.
         main = reinterpret_cast<Main *>(__epos_app_entry);
+
+    Criterion::init();
 
     new (SYSTEM) Thread(Thread::Configuration(Thread::RUNNING, Thread::MAIN), main);
 
@@ -40,7 +41,7 @@ void Thread::init()
     if(Criterion::timed)
         _timer = new (SYSTEM) Scheduler_Timer(QUANTUM, time_slicer);
 
-    // No more interrupts until we reach init_first
+    // No more interrupts until we reach init_end
     CPU::int_disable();
 
     // Transition from CPU-based locking to thread-based locking

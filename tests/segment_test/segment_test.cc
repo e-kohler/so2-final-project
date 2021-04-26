@@ -18,8 +18,8 @@ int main()
     Address_Space self(MMU::current());
 
     cout << "Creating two extra data segments:" << endl;
-    Segment * es1 = new (SYSTEM) Segment(ES1_SIZE);
-    Segment * es2 = new (SYSTEM) Segment(ES2_SIZE);
+    Segment * es1 = new (SYSTEM) Segment(ES1_SIZE, Segment::Flags::SYS);
+    Segment * es2 = new (SYSTEM) Segment(ES2_SIZE, Segment::Flags::SYS);
     cout << "  extra segment 1 => " << ES1_SIZE << " bytes, done!" << endl;
     cout << "  extra segment 2 => " << ES2_SIZE << " bytes, done!" << endl;
 

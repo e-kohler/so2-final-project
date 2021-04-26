@@ -6,12 +6,13 @@
 #include <utility/string.h>
 
 extern "C" void _start();
+extern "C" void _init();
 extern "C" void _int_entry();
 extern "C" void _int_m2s() __attribute((naked, aligned(4)));
+extern "C" void _int_wfi() __attribute((naked, aligned(4)));
 
 extern "C" void _entry() __attribute__ ((used, naked, section(".init")));
 extern "C" void _setup();
-extern "C" void _wait();
 
 __BEGIN_SYS
 
@@ -78,14 +79,16 @@ private:
     char * bi;
     System_Info * si;
 
+    static volatile bool paging_ready;
     static char boot_time_system_info[sizeof(EPOS::System_Info)];
 };
 
+volatile bool Setup::paging_ready = false;
 char Setup::boot_time_system_info[sizeof(EPOS::System_Info)] = "System_Info placeholder. Actual System_Info will be added by mkbi!";
 
 Setup::Setup()
 {
-    CPU::int_disable(); // interrupts will be reenabled at init_first
+    CPU::int_disable(); // interrupts will be reenabled at init_end
 
     if(Traits<System>::multitask) {
         bi = reinterpret_cast<char *>(IMAGE);
@@ -95,32 +98,51 @@ Setup::Setup()
         db<Setup>(TRC) << "Setup(bi=" << reinterpret_cast<void *>(bi) << ",sp=" << reinterpret_cast<void *>(CPU::sp()) << ")" << endl;
         db<Setup>(INF) << "Setup:si=" << *si << endl;
 
-        // Build the memory model
-        build_lm();
-        build_pmm();
+        if(si->bm.n_cpus > Traits<Machine>::CPUS)
+            si->bm.n_cpus = Traits<Machine>::CPUS;
 
-        // Relocate the machine to supervisor handler
-        setup_m2s();
+        if(CPU::id() == 0) { // Boot strap CPU (BSP)
+            // Build the memory model
+            build_lm();
+            build_pmm();
 
-        // Print basic facts about this EPOS instance
-        say_hi();
+            // Relocate the machine to supervisor handler
+            setup_m2s();
 
-        // Configure the memory model defined above
-        setup_sys_pt();
-        setup_sys_pd();
+            // Print basic facts about this EPOS instance
+            say_hi();
 
-        // Enable paging
-        // We won't be able to print anything before the remap() bellow
-        enable_paging();
+            // Configure the memory model defined above
+            setup_sys_pt();
+            setup_sys_pd();
 
-        // Load EPOS parts (e.g. INIT, SYSTEM, APP)
-        load_parts();
+            // Enable paging
+            // We won't be able to print anything before the remap() bellow
+            enable_paging();
 
-        // SETUP ends here, transfer control to next stage (INIT or APP)
-        call_next();
-    } else {
-        _start();
+            // Load EPOS parts (e.g. INIT, SYSTEM, APP)
+            load_parts();
+
+            // Signalize other CPUs that paging is up
+            paging_ready = true;
+
+        } else { // Additional CPUs (APs)
+
+            // Wait for the Boot CPU to setup page tables
+            while(!paging_ready);
+
+            enable_paging();
+        }
     }
+
+    // SETUP ends here, transfer control to next stage (INIT or APP)
+    if(Traits<System>::multitask)
+        call_next();
+    else
+        if(CPU::id() == 0)
+            _start();   // only CPU 0 runs crt0 fully
+        else
+            _init();    // skip things such as BSS zeroing
 
     // SETUP is now part of the free memory and this point should never be
     // reached, but, just in case ... :-)
@@ -404,6 +426,120 @@ void Setup::say_hi()
     kout << endl;
 }
 
+void Setup::setup_sys_pt()
+{
+    db<Setup>(TRC) << "Setup::setup_sys_pt(pmm="
+                   << "{si="      << (void *)si->pmm.sys_info
+                   << ",pt="      << (void *)si->pmm.sys_pt
+                   << ",pd="      << (void *)si->pmm.sys_pd
+                   << ",sysc={b=" << (void *)si->pmm.sys_code << ",s=" << MMU::pages(si->lm.sys_code_size) << "}"
+                   << ",sysd={b=" << (void *)si->pmm.sys_data << ",s=" << MMU::pages(si->lm.sys_data_size) << "}"
+                   << ",syss={b=" << (void *)si->pmm.sys_stack << ",s=" << MMU::pages(si->lm.sys_stack_size) << "}"
+                   << "})" << endl;
+
+    // Get the physical address for the System Page Table
+    PT_Entry * sys_pt = reinterpret_cast<PT_Entry *>(si->pmm.sys_pt);
+
+    // Clear the System Page Table
+    memset(sys_pt, 0, sizeof(Page));
+
+    // System Info
+    sys_pt[MMU::page(SYS_INFO)] = MMU::phy2pte(si->pmm.sys_info, Flags::SYS);
+
+    // Set an entry to this page table, so the system can access it later
+    sys_pt[MMU::page(SYS_PT)] = MMU::phy2pte(si->pmm.sys_pt, Flags::SYS);
+
+    // System Page Directory
+    sys_pt[MMU::page(SYS_PD)] = MMU::phy2pte(si->pmm.sys_pd, Flags::SYS);
+
+    unsigned int i;
+    PT_Entry aux;
+
+    // SYSTEM code
+    for(i = 0, aux = si->pmm.sys_code; i < MMU::pages(si->lm.sys_code_size); i++, aux = aux + sizeof(Page))
+        sys_pt[MMU::page(SYS_CODE) + i] = MMU::phy2pte(aux, Flags::SYS);
+
+    // SYSTEM data
+    for(i = 0, aux = si->pmm.sys_data; i < MMU::pages(si->lm.sys_data_size); i++, aux = aux + sizeof(Page))
+        sys_pt[MMU::page(SYS_DATA) + i] = MMU::phy2pte(aux, Flags::SYS);
+
+    // SYSTEM stack (used only during init and for the ukernel model)
+    for(i = 0, aux = si->pmm.sys_stack; i < MMU::pages(si->lm.sys_stack_size); i++, aux = aux + sizeof(Page))
+        sys_pt[MMU::page(SYS_STACK) + i] = MMU::phy2pte(aux, Flags::SYS);
+
+    db<Setup>(INF) << "SYS_PT=" << *reinterpret_cast<Page_Table *>(sys_pt) << endl;
+}
+
+void Setup::setup_sys_pd()
+{
+    db<Setup>(TRC) << "setup_sys_pd(bm="
+                   << "{memb="  << (void *)si->bm.mem_base
+                   << ",memt="  << (void *)si->bm.mem_top
+                   << ",miob="  << (void *)si->bm.mio_base
+                   << ",miot="  << (void *)si->bm.mio_top
+                   << "{si="    << (void *)si->pmm.sys_info
+                   << ",spt="   << (void *)si->pmm.sys_pt
+                   << ",spd="   << (void *)si->pmm.sys_pd
+                   << ",mem="   << (void *)si->pmm.phy_mem_pts
+                   << ",io="    << (void *)si->pmm.io_pts
+                   << ",umemb=" << (void *)si->pmm.usr_mem_base
+                   << ",umemt=" << (void *)si->pmm.usr_mem_top
+                   << ",sysc="  << (void *)si->pmm.sys_code
+                   << ",sysd="  << (void *)si->pmm.sys_data
+                   << ",syss="  << (void *)si->pmm.sys_stack
+                   << ",apct="  << (void *)si->pmm.app_code_pts
+                   << ",apdt="  << (void *)si->pmm.app_data_pts
+                   << ",fr1b="  << (void *)si->pmm.free1_base
+                   << ",fr1t="  << (void *)si->pmm.free1_top
+                   << ",fr2b="  << (void *)si->pmm.free2_base
+                   << ",fr2t="  << (void *)si->pmm.free2_top
+                   << "})" << endl;
+
+    // Get the physical address for the System Page Directory
+    PT_Entry * sys_pd = reinterpret_cast<PT_Entry *>(si->pmm.sys_pd);
+
+    // Clear the System Page Directory
+    memset(sys_pd, 0, sizeof(Page));
+
+    // Calculate the number of page tables needed to map the physical memory
+    unsigned int mem_size = MMU::pages(si->bm.mem_top - si->bm.mem_base);
+    int n_pts = MMU::page_tables(mem_size);
+
+    // Map the whole physical memory into the page tables pointed by phy_mem_pts
+    PT_Entry * pts = reinterpret_cast<PT_Entry *>(si->pmm.phy_mem_pts);
+    for(unsigned int i = 0; i < mem_size; i++)
+        pts[i] = MMU::phy2pte((si->bm.mem_base + i * sizeof(Page)), Flags::SYS);
+
+    // Attach all physical memory starting at PHY_MEM
+    assert((MMU::directory(MMU::align_directory(PHY_MEM)) + n_pts) < (MMU::PD_ENTRIES - 4)); // check if it would overwrite the OS
+    for(unsigned int i = MMU::directory(MMU::align_directory(PHY_MEM)), j = 0; i < MMU::directory(MMU::align_directory(PHY_MEM)) + n_pts; i++, j++)
+        sys_pd[i] = MMU::phy2pde((si->pmm.phy_mem_pts + j * sizeof(Page)));
+
+    // Attach all physical memory starting at MEM_BASE
+    assert((MMU::directory(MMU::align_directory(MEM_BASE)) + n_pts) < (MMU::PD_ENTRIES - 4)); // check if it would overwrite the OS
+    for(unsigned int i = MMU::directory(MMU::align_directory(MEM_BASE)), j = 0; i < MMU::directory(MMU::align_directory(MEM_BASE)) + n_pts; i++, j++)
+        sys_pd[i] = MMU::phy2pde((si->pmm.phy_mem_pts + j * sizeof(Page)));
+
+    // Calculate the number of page tables needed to map the IO address space
+    unsigned int io_size = MMU::pages(si->bm.mio_top - si->bm.mio_base);
+    n_pts = MMU::page_tables(io_size);
+
+    // Map IO address space into the page tables pointed by io_pts
+    pts = reinterpret_cast<PT_Entry *>(si->pmm.io_pts);
+    for(unsigned int i = 0; i < io_size; i++)
+        pts[i] = MMU::phy2pte((si->bm.mio_base + i * sizeof(Page)), Flags::IO);
+
+    // Attach devices' memory at Memory_Map::IO
+    assert((MMU::directory(MMU::align_directory(IO)) + n_pts) < (MMU::PD_ENTRIES - 3)); // check if it would overwrite the OS
+    for(unsigned int i = MMU::directory(MMU::align_directory(IO)), j = 0; i < MMU::directory(MMU::align_directory(IO)) + n_pts; i++, j++)
+        sys_pd[i] = MMU::phy2pde((si->pmm.io_pts + j * sizeof(Page)));
+
+    // Attach the OS (i.e. sys_pt)
+    sys_pd[MMU::directory(SYS)] = MMU::phy2pde(si->pmm.sys_pt);
+
+    db<Setup>(INF) << "SYS_PD=" << *reinterpret_cast<Page_Table *>(sys_pd) << endl;
+}
+
 void Setup::setup_m2s()
 {
     db<Setup>(TRC) << "Setup::setup_m2s()" << endl;
@@ -523,8 +659,10 @@ void Setup::call_next()
     // Check for next stage and obtain the entry point
     register Log_Addr ip;
     if(si->lm.has_ini) {
-        db<Setup>(TRC) << "Executing system's global constructors ..." << endl;
-        reinterpret_cast<void (*)()>((void *)si->lm.sys_entry)();
+        if(CPU::id() == 0) {
+            db<Setup>(TRC) << "Executing system's global constructors ..." << endl;
+            reinterpret_cast<void (*)()>((void *)si->lm.sys_entry)();
+        }
         ip = si->lm.ini_entry;
     } else if(si->lm.has_sys)
         ip = si->lm.sys_entry;
@@ -550,9 +688,11 @@ void Setup::call_next()
     CPU::sp(sp);
     static_cast<void (*)()>(ip)();
 
-    // This will only happen when INIT was called and Thread was disabled
-    // Note we don't have the original stack here anymore!
-    reinterpret_cast<void (*)()>(si->lm.app_entry)();
+    if(CPU::id() == 0) { // Boot strap CPU (BSP)
+        // This will only happen when INIT was called and Thread was disabled
+        // Note we don't have the original stack here anymore!
+        reinterpret_cast<void (*)()>(si->lm.app_entry)();
+    }
 }
 
 __END_SYS
@@ -564,58 +704,42 @@ void _entry() // machine mode
     CPU::mstatusc(CPU::MIE);                            // disable interrupts
     CPU::mies(CPU::MSI | CPU::MTI | CPU::MEI);          // enable interrupts at CLINT so IPI and timer can be triggered
     CPU::tp(CPU::mhartid());                            // tp will be CPU::id()
-    CPU::sp(Memory_Map::BOOT_STACK - Traits<Machine>::STACK_SIZE * CPU::id()); // set this hart stack
+    CPU::sp(Memory_Map::BOOT_STACK - Traits<Machine>::STACK_SIZE * (CPU::id() + 1)); // set this hart stack (the first stack is reserved for _int_m2s)
     if(Traits<System>::multitask) {
         CLINT::mtvec(CLINT::DIRECT, Memory_Map::MEM_TOP + 1 - sizeof(MMU::Page));  // setup a machine mode interrupt handler to forward timer interrupts (which cannot be delegated via mideleg)
         CPU::mideleg(0xffff);                           // delegate all interrupts to supervisor mode
-        CPU::medeleg(0xffff - (1 << CPU::EXC_ENVS));    // delegate all exceptions to supervisor mode - except ecall that shoul be handled on mmode
+        CPU::medeleg(0xffff);                           // delegate all exceptions to supervisor mode - except ecall that shoul be handled on mmode
         CPU::mstatuss(CPU::MPP_S | CPU::MPIE);          // prepare jump into supervisor mode and reenable of interrupts at mret
-        CPU::mepc(CPU::Reg(&_setup));                   // entry = _setup
     } else {
         CLINT::mtvec(CLINT::DIRECT, _int_entry);
-        if(CPU::id() == 0) {
-            CPU::mstatus(CPU::MPP_M);                   // interrupts are kept disabled for hart 0
-            CPU::mepc(CPU::Reg(&_setup));
-        } else {
-            CPU::mstatus(CPU::MPP_M | CPU::MPIE);       // interrupts reenabled to wait for IPI (aka INT_RESCHEDULER)
-            CPU::mepc(CPU::Reg(&_wait));
-        }
+        CPU::mstatus(CPU::MPP_M | CPU::MPIE);           // stay in machine mode and reenable interrupts at mret
     }
+    CPU::mepc(CPU::Reg(&_setup));                       // entry = _setup
     CPU::mret();                                        // enter supervisor mode at setup (mepc) with interrupts enabled (mstatus.mpie = true)
 }
 
-void _setup()
+void _setup() // supervisor mode
 {
     if(Traits<System>::multitask) {
-//        IC::int_vector(IC::INT_RESCHEDULER, IC::ipi_eoi);   // define the SSI (aka INT_RESCHEDULER) handler to ipi_eoi()
-        CLINT::stvec(CLINT::DIRECT, _int_entry);        // setup a supervisor mode interrupt handler
         CPU::sie(CPU::SSI);                             // enable SSI at CLINT so IPI can be triggered
     } else
         CPU::mie(CPU::MSI);                             // enable MSI at CLINT so IPI can be triggered
 
     if(CPU::id() != 0) {
-        CPU::int_enable();                              // enable interrupts to wait for IPI (aka INT_RESCHEDULER)
+        CLINT::stvec(CLINT::DIRECT, _int_wfi);          // setup a supervisor mode IPI handler
+        CPU::int_enable();                              // enable interrupts to wait for IPI
         CPU::halt();                                    // halt the hart waiting for an IPI from hart 0
     }
 
     Setup setup;
 }
 
-void _wait()
-{
-    CPU::halt();
-    IC::ipi_eoi(IC::INT_RESCHEDULER); // acknowledge the IPI (i.e. clear MIP.MSI) so we don't loop forever here
-    _setup();
-}
-
 void _int_m2s()
 {
-    // saving and restoring registers since we are making more than just executing mret
     ASM("# Save context                                                 \n"
         "        csrw  mscratch,     sp                                 \n"
-        "        lui         sp,0x88000                                 \n"
-        "        addi        sp,sp,-1                                   \n"
-        "        addi        sp,     sp,   -124                         \n"          // 32 regs of 4 bytes each = 128 Bytes
+        "        la          sp,     %0                                 \n"
+        "        addi        sp,     sp,   -124                         \n"
         "        sw          x1,   4(sp)                                \n"
         "        sw          x2,   8(sp)                                \n"
         "        sw          x3,  12(sp)                                \n"
@@ -645,7 +769,7 @@ void _int_m2s()
         "        sw         x28, 108(sp)                                \n"
         "        sw         x29, 112(sp)                                \n"
         "        sw         x30, 116(sp)                                \n"
-        "        sw         x31, 120(sp)                                \n");
+        "        sw         x31, 120(sp)                                \n" : : "i"(Memory_Map::BOOT_STACK));
 
     CPU::Reg id = CPU::mcause();
     if((id & CLINT::INT_MASK) == CLINT::IRQ_MAC_SOFT)
@@ -691,4 +815,76 @@ void _int_m2s()
         "        addi        sp,     sp,    124                         \n"
         "        csrr        sp, mscratch                               \n"
         "        mret                                                   \n");
+}
+
+void _int_wfi()
+{
+    ASM("# Save context                                                 \n"
+        "        addi        sp,     sp,   -124                         \n"
+        "        sw          x1,   4(sp)                                \n"
+        "        sw          x2,   8(sp)                                \n"
+        "        sw          x3,  12(sp)                                \n"
+        "        sw          x5,  16(sp)                                \n"
+        "        sw          x6,  20(sp)                                \n"
+        "        sw          x7,  24(sp)                                \n"
+        "        sw          x8,  28(sp)                                \n"
+        "        sw          x9,  32(sp)                                \n"
+        "        sw         x10,  36(sp)                                \n"
+        "        sw         x11,  40(sp)                                \n"
+        "        sw         x12,  44(sp)                                \n"
+        "        sw         x13,  48(sp)                                \n"
+        "        sw         x14,  52(sp)                                \n"
+        "        sw         x15,  56(sp)                                \n"
+        "        sw         x16,  60(sp)                                \n"
+        "        sw         x17,  64(sp)                                \n"
+        "        sw         x18,  68(sp)                                \n"
+        "        sw         x19,  72(sp)                                \n"
+        "        sw         x20,  76(sp)                                \n"
+        "        sw         x21,  80(sp)                                \n"
+        "        sw         x22,  84(sp)                                \n"
+        "        sw         x23,  88(sp)                                \n"
+        "        sw         x24,  92(sp)                                \n"
+        "        sw         x25,  96(sp)                                \n"
+        "        sw         x26, 100(sp)                                \n"
+        "        sw         x27, 104(sp)                                \n"
+        "        sw         x28, 108(sp)                                \n"
+        "        sw         x29, 112(sp)                                \n"
+        "        sw         x30, 116(sp)                                \n"
+        "        sw         x31, 120(sp)                                \n");
+
+    IC::ipi_eoi(IC::INT_RESCHEDULER);
+    CPU::sipc(CPU::SSI);
+
+    ASM("        lw          x1,   4(sp)                                \n"
+        "        lw          x2,   8(sp)                                \n"
+        "        lw          x3,  12(sp)                                \n"
+        "        lw          x5,  16(sp)                                \n"
+        "        lw          x6,  20(sp)                                \n"
+        "        lw          x7,  24(sp)                                \n"
+        "        lw          x8,  28(sp)                                \n"
+        "        lw          x9,  32(sp)                                \n"
+        "        lw         x10,  36(sp)                                \n"
+        "        lw         x11,  40(sp)                                \n"
+        "        lw         x12,  44(sp)                                \n"
+        "        lw         x13,  48(sp)                                \n"
+        "        lw         x14,  52(sp)                                \n"
+        "        lw         x15,  56(sp)                                \n"
+        "        lw         x16,  60(sp)                                \n"
+        "        lw         x17,  64(sp)                                \n"
+        "        lw         x18,  68(sp)                                \n"
+        "        lw         x19,  72(sp)                                \n"
+        "        lw         x20,  76(sp)                                \n"
+        "        lw         x21,  80(sp)                                \n"
+        "        lw         x22,  84(sp)                                \n"
+        "        lw         x23,  88(sp)                                \n"
+        "        lw         x24,  92(sp)                                \n"
+        "        lw         x25,  96(sp)                                \n"
+        "        lw         x26, 100(sp)                                \n"
+        "        lw         x27, 104(sp)                                \n"
+        "        lw         x28, 108(sp)                                \n"
+        "        lw         x29, 112(sp)                                \n"
+        "        lw         x30, 116(sp)                                \n"
+        "        lw         x31, 120(sp)                                \n"
+        "        addi        sp,     sp,    124                         \n"
+        "        sret                                                   \n");
 }

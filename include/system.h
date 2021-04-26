@@ -26,15 +26,15 @@ private:
 
 class System
 {
-    friend class Init_System;
-    friend class Init_Application;
+    friend class Init_System;                                                   // for _heap
+    friend class Init_Application;                                              // for _heap with multiheap = false
     friend void CPU::Context::load() const volatile;
-    friend void * ::malloc(size_t);
-    friend void ::free(void *);
-    friend void * ::operator new(size_t, const EPOS::System_Allocator &);
-    friend void * ::operator new[](size_t, const EPOS::System_Allocator &);
-    friend void ::operator delete(void *);
-    friend void ::operator delete[](void *);
+    friend void * ::malloc(size_t);						// for _heap
+    friend void ::free(void *);							// for _heap
+    friend void * ::operator new(size_t, const EPOS::System_Allocator &);	// for _heap
+    friend void * ::operator new[](size_t, const EPOS::System_Allocator &);	// for _heap
+    friend void ::operator delete(void *);					// for _heap
+    friend void ::operator delete[](void *);					// for _heap
 
 public:
     static System_Info * const info() { assert(_si); return _si; }

@@ -118,9 +118,16 @@ void IC::dispatch()
         db<IC>(TRC) << "IC::dispatch(i=" << id << ")" << endl;
 
     if(sup) {
+        if(id == INT_RESCHEDULER)
+            CPU::sipc(CPU::SSI);
+
         if(id == INT_SYS_TIMER)
             CPU::siec(CPU::STI);
     } else {
+        // IPIs must be acknowledged before calling the ISR, because in RISC-V, MIP set bits will keep on triggering interrupts until they are cleared
+        if(id == INT_RESCHEDULER)
+            IC::ipi_eoi(id);
+
         // MIP.MTI is a direct logic on (MTIME == MTIMECMP) and reseting the Timer clears it
         if(id == INT_SYS_TIMER)
             Timer::reset();
@@ -145,8 +152,9 @@ void IC::exception(Interrupt_Id id)
     CPU::Reg hartid = CPU::id();
     CPU::Reg epc = sup ? CPU::sepc() : CPU::mepc();
     CPU::Reg tval = sup ? CPU::stval() : CPU::mtval();
+    CPU::Reg sp = CPU::sp();
 
-    db<IC,System>(WRN) << "IC::Exception(" << id << ") => {" << hex << "status=" << status << ",cause=" << cause << ",hartid=" << hartid << ",epc=" << epc << ",tval=" << tval << "}" << dec;
+    db<IC,System>(WRN) << "IC::Exception(" << id << ") => {" << hex << "status=" << status << ",cause=" << cause << ",hartid=" << hartid << ",epc=" << epc << ",tval=" << tval << ",sp=" << sp <<  "}" << dec;
 
     switch(id) {
         case 0: // unaligned Instruction
@@ -163,7 +171,7 @@ void IC::exception(Interrupt_Id id)
         case 5: // load access failure
         case 6: // unaligned store address
         case 7: // store access failure
-            db<IC, System>(WRN) << " => unaligned data";
+            db<IC, System>(WRN) << " => data error (unaligned)";
             break;
         case 8: // user-mode environment call
         case 9: // supervisor-mode environment call

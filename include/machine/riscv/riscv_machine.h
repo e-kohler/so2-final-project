@@ -16,7 +16,7 @@ __BEGIN_SYS
 class Machine: private Machine_Common
 {
     friend class Setup;
-    friend class First_Object;
+    friend class Init_Begin;
     friend class Init_System;
 
 private:
@@ -58,28 +58,8 @@ public:
     static const UUID & uuid() { return System::info()->bm.uuid; }
 
 private:
-    static void smp_barrier_init(unsigned int n_cpus) {
-        db<Machine>(TRC) << "Machine::smp_barrier_init(n=" << n_cpus << ")" << endl;
-        IC::int_vector(IC::INT_RESCHEDULER, IC::ipi_eoi);
-        for(unsigned int i = 1; i < n_cpus; i++) {
-            IC::ipi(i, IC::INT_RESCHEDULER); // default code for IPI (it could be any value except 0)
-        }
-    }
-
-    static void pre_init(System_Info * si) {
-        if(CPU::id() == 0)
-            Display::init();
-
-        // Adjust stvec to point to _int_entry's logical address
-        if(Traits<System>::multitask)
-            CLINT::stvec(CLINT::DIRECT, &IC::entry);
-
-        db<Init, Machine>(TRC) << "Machine::pre_init()" << endl;
-
-        if(Traits<System>::multicore && (CPU::id() == 0))
-            smp_barrier_init(Traits<Build>::CPUS); // wake up remaining CPUs
-    }
-
+    static void smp_barrier_init(unsigned int n_cpus);
+    static void pre_init(System_Info * si);
     static void init();
 };
 

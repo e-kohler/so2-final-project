@@ -17,7 +17,7 @@ __BEGIN_SYS
 class Machine: public Machine_Common
 {
     friend class Init_System;
-    friend class First_Object;
+    friend class Init_Begin;
 
 private:
     static const bool smp = Traits<System>::multicore;
@@ -41,17 +41,7 @@ public:
     static const UUID & uuid() { return System::info()->bm.uuid; }
 
 private:
-    static void pre_init(System_Info * si) {
-        if(CPU::id() == 0)
-            Display::init();
-
-        db<Init, Machine>(TRC) << "Machine::pre_init()" << endl;
-
-        // Usually BSP gets here later than other cores, so CPU::smp_barrier_init() must be idempotent
-        if(Traits<System>::multicore)
-            CPU::smp_barrier_init(si->bm.n_cpus);
-    }
-
+    static void pre_init(System_Info * si);
     static void init();
 };
 

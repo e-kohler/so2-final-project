@@ -21,9 +21,10 @@ public:
 
         // Initialize Application's heap
         db<Init>(INF) << "Initializing application's heap: " << endl;
-        if(Traits<System>::multiheap) {
-            char * heap = (Traits<System>::multitask) ? reinterpret_cast<char *>(System::info()->lm.app_heap)
-                : static_cast<char *>(MMU::align_page(&_end)); // heap in data segment arranged by SETUP
+        if(Traits<System>::multiheap) { // heap in data segment arranged by SETUP
+            char * heap = MMU::align_page(&_end);
+            if(Traits<Build>::MODE != Traits<Build>::KERNEL) // if not a kernel, then use the stack allocated by SETUP, otherwise make that part of the heap
+                heap += MMU::align_page(Traits<Application>::STACK_SIZE);
             Application::_heap = new (&Application::_preheap[0]) Heap(heap, HEAP_SIZE);
         } else
             for(unsigned int frames = MMU::allocable(); frames; frames = MMU::allocable())
@@ -32,8 +33,7 @@ public:
     }
 };
 
-// Global object "init_application"  must be linked to the application (not
-// to the system) and there constructed at first.
+// Global object "init_application"  must be linked to the application (not to the system) and there constructed at first.
 Init_Application init_application;
 
 __END_SYS

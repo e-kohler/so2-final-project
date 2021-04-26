@@ -3,16 +3,21 @@
 // PC_BOOT assumes offset "0" to be the entry point of PC_SETUP
 // We will achieve this by declaring _start in segment .init
 
+#include <architecture.h>
+#include <machine.h>
 #include <utility/elf.h>
 #include <utility/string.h>
-#include <utility/ostream.h>
-#include <utility/debug.h>
-#include <machine.h>
+
+extern "C" void _start();
+extern "C" void _init();
 
 // SETUP entry point is in .init (and not in .text), so it will be linked first and will be the first function after the ELF header in the image
-extern "C" { void _start() __attribute__ ((section (".init"))); }
+extern "C" void _entry() __attribute__ ((section(".init")));
+extern "C" void _setup(char * bi);
 
 __BEGIN_SYS
+
+extern OStream kout, kerr;
 
 // "_start" Synchronization Globals
 volatile char * Stacks;
@@ -63,7 +68,7 @@ private:
     typedef CPU::GDT_Entry GDT_Entry;
     typedef CPU::IDT_Entry IDT_Entry;
     typedef CPU::TSS TSS;
-    typedef MMU::IA32_Flags Flags;
+    typedef MMU::Page_Flags Flags;
     typedef MMU::Page Page;
     typedef MMU::Page_Table Page_Table;
     typedef MMU::Page_Directory Page_Directory;
@@ -124,10 +129,10 @@ Setup::Setup(char * boot_image)
 
     db<Setup>(TRC) << "Setup(bi=" << reinterpret_cast<void *>(bi) << ",sp=" << reinterpret_cast<void *>(CPU::sp()) << ")" << endl;
 
-    db<Setup>(INF) << "System_Info=" << *si << endl;
-
     CPU::smp_barrier(si->bm.n_cpus);
     if(cpu_id == 0) { // Boot strap CPU (BSP)
+
+        db<Setup>(INF) << "System_Info=" << *si << endl;
 
         // Disable hardware interrupt triggering at PIC
         i8259A::reset();
@@ -436,22 +441,6 @@ void Setup::build_pmm()
     // The memory allocated so far will "disappear" from the system as we set usr_mem_top as follows:
     si->pmm.usr_mem_base = si->bm.mem_base;
     si->pmm.usr_mem_top = top_page * sizeof(Page);
-
-    // APP code page table
-    top_page -= MMU::page_tables(MMU::pages(si->lm.app_code_size));
-    si->pmm.app_code_pts = top_page * sizeof(Page);
-
-    // APP data page table
-    top_page -= MMU::page_tables(MMU::pages(si->lm.app_data_size));
-    si->pmm.app_data_pts = top_page * sizeof(Page);
-
-    // APP code segment
-    top_page -= MMU::pages(si->lm.app_code_size);
-    si->pmm.app_code = top_page * sizeof(Page);
-
-    // APP data segment (including stack, heap and extra)
-    top_page -= MMU::pages(si->lm.app_data_size);
-    si->pmm.app_data = top_page * sizeof(Page);
 
     // Free chuncks (passed to MMU::init)
     si->pmm.free1_base = MMU::align_page(si->lm.app_code + si->lm.app_code_size);
@@ -863,8 +852,6 @@ void Setup::call_next()
     else
         db<Setup>(TRC) << "APPLICATION" << endl;
 
-    db<Setup>(INF) << "System_Info=" << *si << endl;
-
     db<Setup>(INF) << "SETUP ends here!" << endl;
 
     CPU::smp_barrier(si->bm.n_cpus);
@@ -993,13 +980,10 @@ void Setup::calibrate_timers()
 
 __END_SYS
 
-using namespace EPOS;
-
-extern "C" { void _start(); }
-extern "C" { void setup(char * bi); }
+using namespace EPOS::S;
 
 //========================================================================
-// _start
+// _entry
 //
 // "_start" MUST BE PC_SETUP's first function, since PC_BOOT assumes
 // offset "0" to be the entry point. It is a kind of bridge between the
@@ -1020,7 +1004,7 @@ extern "C" { void setup(char * bi); }
 // THIS FUNCTION MUST BE RELOCATABLE, because it won't run at the
 // address it has been compiled for.
 //------------------------------------------------------------------------
-void _start()
+void _entry()
 {
     // Set EFLAGS
     CPU::flags(CPU::flags() & CPU::FLAG_CLEAR);
@@ -1127,10 +1111,10 @@ void _start()
     // Call setup()
     // the assembly is necessary because the compiler generates
     // relative calls and we need an absolute one
-    ASM("call *%0" : : "r" (&setup));
+    ASM("call *%0" : : "r" (&_setup));
 }
 
-void setup(char * bi)
+void _setup(char * bi)
 {
     if(!Traits<System>::multicore || (APIC::id() == 0)) {
         kerr  << endl;
@@ -1145,5 +1129,5 @@ void setup(char * bi)
         CPU::halt();
     }
 
-    Setup pc_setup(bi);
+    Setup setup(bi);
 }

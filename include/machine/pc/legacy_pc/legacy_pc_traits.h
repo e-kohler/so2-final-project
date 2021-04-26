@@ -47,7 +47,7 @@ template<> struct Traits<Machine>: public Traits<Machine_Common>
 
     // Default Sizes and Quantities
     static const unsigned int STACK_SIZE        = 16 * 1024;
-    static const unsigned int HEAP_SIZE         = 16 * 1024 * 1024;
+    static const unsigned int HEAP_SIZE         = 4 * 1024 * 1024;
     static const unsigned int MAX_THREADS       = 16;
 };
 
@@ -132,7 +132,7 @@ template<> struct Traits<Keyboard>: public Traits<Machine_Common>
 
 template<> struct Traits<Scratchpad>: public Traits<Machine_Common>
 {
-    static const bool enabled = true;
+    static const bool enabled = false;
     static const unsigned int ADDRESS = 0xa0000; // VGA Graphic mode frame buffer
     static const unsigned int SIZE = 96 * 1024;
 };

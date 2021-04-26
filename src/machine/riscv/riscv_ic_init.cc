@@ -17,7 +17,7 @@ void IC::init()
 
     // Set all exception handlers to exception()
     for(Interrupt_Id i = 0; i < CPU::EXCEPTIONS; i++)
-        _int_vector[i] = exception;
+        _int_vector[i] = &exception;
 
     // Set all interrupt handlers to int_not()
     for(Interrupt_Id i = HARD_INT; i < INTS; i++)

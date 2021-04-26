@@ -69,7 +69,7 @@ public:
         EXC_ENVU        = 8,    // Environment call from U-mode
         EXC_ENVS        = 9,    // Environment call from S-mode
         EXC_ENVH        = 10,   // Environment call from H-mode
-        EXC_ENVM        = 11    // Environment call from M-m
+        EXC_ENVM        = 11    // Environment call from M-mode
     };
 
     // Context
@@ -205,9 +205,6 @@ public:
     static void fpu_restore();
     static void switch_context(Context ** o, Context * n) __attribute__ ((naked));
 
-    static int syscall(void * message);
-    static void syscalled();
-
     template<typename T>
     static T tsl(volatile T & lock) {
         register T old;
@@ -289,6 +286,15 @@ public:
     // RISC-V 32 specifics
     static Reg tp() { Reg r; ASM("mv %0, tp" : "=r"(r) :); return r; }
     static void tp(Reg r) { ASM("mv tp, %0" : : "r"(r) :); }
+
+    static Reg32 a0() { Reg32 r;      ASM("mv %0, a0" :  "=r"(r)); return r; }
+    static void a0(const Reg32 & r) { ASM("mv a0, %0" : : "r"(r) :); }
+    static Reg32 a1() { Reg32 r;      ASM("mv %0, a1" :  "=r"(r)); return r; }
+    static void a1(const Reg32 & r) { ASM("mv a1, %0" : : "r"(r) :); }
+    static Reg32 lr() { Reg32 r;      ASM("mv %0, x1" :  "=r"(r)); return r; }
+    static void lr(const Reg32 & r) { ASM("mv x1, %0" : : "r"(r) :); }
+
+    static void ecall() { ASM("ecall"); }
 
     // Machine mode
     static Reg mhartid() { Reg r; ASM("csrr %0, mhartid" : "=r"(r) : : "memory", "cc"); return r & 0x3; }

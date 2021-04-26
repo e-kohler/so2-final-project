@@ -50,7 +50,6 @@ public:
 
     public:
         Page_Flags() {}
-        Page_Flags(const Page_Flags & f) : _flags(f._flags) {}
         Page_Flags(unsigned int f) : _flags(f) {}
         Page_Flags(Flags f) : _flags(V | R | X |
                                      ((f & Flags::RW)  ? W  : 0) |
@@ -133,7 +132,7 @@ public:
 
         Chunk(unsigned int bytes, Flags flags, Color color = WHITE)
         : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Page_Flags(flags)), _pt(calloc(_pts, WHITE)) {
-            if(flags & Page_Flags::CT)
+            if(_flags & Page_Flags::CT)
                 _pt->map_contiguous(_from, _to, _flags, color);
             else
                 _pt->map(_from, _to, _flags, color);
@@ -231,10 +230,11 @@ public:
         }
 
         void detach(const Chunk & chunk) {
-            for(unsigned int i = 0; i < PD_ENTRIES; i++)
-                if(indexes((*_pd)[i]) == indexes(chunk.pt())) {
+            for(unsigned int i = 0; i < PD_ENTRIES; i++) {
+                if(indexes((*_pd)[i]) == indexes(phy2pde(chunk.pt()))) {
                     detach(i, chunk.pt(), chunk.pts());
-                return;
+                    return;
+                }
             }
             db<MMU>(WRN) << "MMU::Directory::detach(pt=" << chunk.pt() << ") failed!" << endl;
         }

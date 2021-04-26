@@ -44,9 +44,9 @@ struct Memory_Map
         SYS_PD          = SYS + 0x00003000,
         SYS_INFO        = SYS + 0x00004000,
         TSS0            = SYS + 0x00005000,
-        SYS_CODE        = SYS + 0x00300000,
-        SYS_DATA        = SYS + 0x00340000,
-        SYS_STACK       = SYS + 0x003c0000,
+        SYS_CODE        = SYS + 0x00100000,
+        SYS_DATA        = SYS + 0x00200000,
+        SYS_STACK       = SYS + 0x00300000,
         SYS_HEAP        = SYS + 0x00400000
     };
 };
