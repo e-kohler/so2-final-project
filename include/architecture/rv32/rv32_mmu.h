@@ -92,6 +92,15 @@ public:
         }
 
         void remap(Phy_Addr addr, int from, int to, Page_Flags flags) {
+            /*for (int i = from; i < to; i++)
+            {
+                unsigned int pte = addr >> 12;
+                pte = pte << 10;
+                pte += (i << 10);
+                pte = pte | flags;
+                _entry[i] = pte;
+            }*/
+            
             addr = align_page(addr);
             for( ; from < to; from++) {
                 Log_Addr * pte = phy2log(&_entry[from]);
@@ -396,11 +405,10 @@ public:
     static Phy_Addr pde2phy(PD_Entry entry) { return (entry & ~Page_Flags::MASK) << 2; }
 
     static void flush_tlb() {
-        //TODO
+        ASM("sfence.vma");
     }
-    static void flush_tlb(Log_Addr addr) {
-        //TODO
-    }
+
+    static void flush_tlb(Log_Addr addr) { ASM("sfence.vma"); }
 
 private:
     static void init();
@@ -421,6 +429,7 @@ private:
 
 private:
     static List _free[colorful * COLORS + 1]; // +1 for WHITE
+public:
     static Page_Directory * _master;
 };
 

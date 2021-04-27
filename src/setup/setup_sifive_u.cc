@@ -439,9 +439,9 @@ void Setup::load_parts()
     if(sizeof(System_Info) > sizeof(Page))
         db<Setup>(WRN) << "System_Info is bigger than a page (" << sizeof(System_Info) << ")!" << endl;
 
-    if(Traits<Setup>::hysterically_debugged)
-        db<Setup>(INF) << "translate:" << MMU::Translation(SYS_INFO) << endl;
-    memcpy(reinterpret_cast<void *>(SYS_INFO), si, sizeof(System_Info));
+    /*if(Traits<Setup>::hysterically_debugged)
+        db<Setup>(INF) << "translate:" << MMU::Translation(SYS_INFO) << endl;*/
+    memcpy(reinterpret_cast<void *>(SYS_INFO), bi, sizeof(System_Info));
     si = reinterpret_cast<System_Info *>(SYS_INFO);
 
     // Load INIT

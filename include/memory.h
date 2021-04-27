@@ -10,12 +10,10 @@ __BEGIN_SYS
 class Address_Space: private MMU::Directory
 {
 
-private:
-    using MMU::Directory::activate;
-
 public:
     typedef CPU::Phy_Addr Phy_Addr;
     typedef CPU::Log_Addr Log_Addr;
+    using MMU::Directory::activate;
 
 public:
     Address_Space();
