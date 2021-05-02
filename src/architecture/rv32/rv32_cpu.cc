@@ -2,12 +2,15 @@
 
 #include <architecture/rv32/rv32_cpu.h>
 #include <system.h>
+#include <framework/message.h>
 
 __BEGIN_SYS
 
 // Class attributes
 unsigned int CPU::_cpu_clock;
 unsigned int CPU::_bus_clock;
+
+extern "C" { void _exec(void * m); }
 
 // Class methods
 void CPU::Context::save() volatile
@@ -85,12 +88,13 @@ void CPU::Context::load() const volatile
         "       lw      x29,  -12(sp)           \n"
         "       lw      x30,   -8(sp)           \n"
         "       lw      x31,   -4(sp)           \n" : : "r"(this));
-if(sup)
+if(sup){
     ASM("       lw       x3, -120(sp)           \n"     // pop st
         "       csrs    sstatus,   x3           \n"     // set sstatus for sret
         "       lw       x3, -116(sp)           \n"     // pop pc
         "       csrw    sepc,      x3           \n"     // move pc to sepc for sret
         "       sret                            \n");
+}
 else
     ASM("       lw       x3, -120(sp)           \n"     // pop st
         "       csrs    mstatus,   x3           \n"     // set mstatus for mret
@@ -190,6 +194,19 @@ else
         "       lw      x30,   -8(sp)           \n"
         "       lw      x31,   -4(sp)           \n"
         "       mret                            \n");
+}
+
+void * syscall_msg;
+void CPU::syscall(void * msg)
+{ 
+    syscall_msg = msg;
+    CPU::ecall();
+}
+
+void CPU::syscalled()
+{
+    _exec(syscall_msg);
+    // ASM("uret");
 }
 
 __END_SYS

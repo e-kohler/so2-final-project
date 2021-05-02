@@ -42,6 +42,7 @@ public:
         SPP_S           = 1 << 8,      // Supervisor Previous Privilege = Supervisor
         SPP_U           = 0 << 8,      // Supervisor Previous Privilege = User
         MPRV            = 1 << 17,     // Memory Priviledge
+        SUM             = 1 << 18,     // Supervisor User Memory
         TVM             = 1 << 20      // Trap Virtual Memory //not allow MMU
     };
 
@@ -205,6 +206,9 @@ public:
     static void fpu_restore();
     static void switch_context(Context ** o, Context * n) __attribute__ ((naked));
 
+    static void syscall(void * msg);
+    static void syscalled();
+
     template<typename T>
     static T tsl(volatile T & lock) {
         register T old;
@@ -291,6 +295,8 @@ public:
     static void a0(const Reg32 & r) { ASM("mv a0, %0" : : "r"(r) :); }
     static Reg32 a1() { Reg32 r;      ASM("mv %0, a1" :  "=r"(r)); return r; }
     static void a1(const Reg32 & r) { ASM("mv a1, %0" : : "r"(r) :); }
+    static Reg32 a7() { Reg32 r;      ASM("mv %0, a7" :  "=r"(r)); return r; }
+    static void a7(const Reg32 & r) { ASM("mv a7, %0" : : "r"(r) :); }
     static Reg32 lr() { Reg32 r;      ASM("mv %0, x1" :  "=r"(r)); return r; }
     static void lr(const Reg32 & r) { ASM("mv x1, %0" : : "r"(r) :); }
 

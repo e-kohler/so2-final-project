@@ -16,21 +16,24 @@ Scheduler_Timer * Thread::_timer;
 Scheduler<Thread> Thread::_scheduler;
 
 
-void Thread::constructor_prologue(unsigned int stack_size)
+void Thread::constructor_prologue(const Color & color, unsigned int stack_size)
 {
     lock();
 
     _thread_count++;
     _scheduler.insert(this);
 
-    _stack = new (SYSTEM) char[stack_size];
+    if(Traits<MMU>::colorful && color != WHITE)
+        _stack = new (color) char[stack_size];
+    else
+        _stack = new (SYSTEM) char[stack_size];
 }
 
 
 void Thread::constructor_epilogue(const Log_Addr & entry, unsigned int stack_size)
 {
-    db<Thread>(TRC) << "Thread(task=" << _task
-                    << ",entry=" << entry
+    db<Thread>(TRC) << "Thread(entry=" << entry
+                    << ",task=" << _task
                     << ",state=" << _state
                     << ",priority=" << _link.rank()
                     << ",stack={b=" << reinterpret_cast<void *>(_stack)
@@ -40,15 +43,16 @@ void Thread::constructor_epilogue(const Log_Addr & entry, unsigned int stack_siz
 
     assert((_state != WAITING) && (_state != FINISHING)); // Invalid states
 
-    if(multitask)
-        _task->insert(this);
+    if((this->_task) && Traits<System>::multitask)
+      _task->insert(this);
 
+    db<Thread>(TRC) << "if((_state != READY) && (_state != RUNNING))" <<endl;
     if((_state != READY) && (_state != RUNNING))
         _scheduler.suspend(this);
-
+    db<Thread>(TRC) <<"preemptive && (_state == READY) && (_link.rank() != IDLE)" <<endl;
     if(preemptive && (_state == READY) && (_link.rank() != IDLE))
         reschedule();
-
+    db<Thread>(TRC) <<"unlock()" <<endl;
     unlock();
 }
 
@@ -90,8 +94,9 @@ Thread::~Thread()
         break;
     }
 
-    if(multitask)
-        _task->remove(this);
+    if((this->_task) && Traits<System>::multitask) {
+      _task->remove(this);
+    }
 
     if(_joining)
         _joining->resume();
@@ -346,6 +351,11 @@ void Thread::dispatch(Thread * prev, Thread * next, bool charge)
         db<Thread>(TRC) << "Thread::dispatch(prev=" << prev << ",next=" << next << ")" << endl;
         db<Thread>(INF) << "prev={" << prev << ",ctx=" << *prev->_context << "}" << endl;
         db<Thread>(INF) << "next={" << next << ",ctx=" << *next->_context << "}" << endl;
+
+        if(Traits<System>::multitask && (next->_task) && (next->_task != prev->_task)) {
+            db<Thread>(TRC) << "Thread::dispatch -> Traits<System>::multitask && (next->_task != prev->_task)" << endl;
+            next->_task->activate();
+        }
 
         // The non-volatile pointer to volatile pointer to a non-volatile context is correct
         // and necessary because of context switches, but here, we are locked() and

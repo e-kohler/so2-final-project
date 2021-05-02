@@ -17,6 +17,7 @@ void Thread::init()
 
     System_Info * si = System::info();
     Main * main;
+    Task * task;
 
     if(Traits<System>::multitask)
         main = reinterpret_cast<Main *>(si->lm.app_entry);
@@ -28,7 +29,7 @@ void Thread::init()
     Criterion::init();
 
     if(Traits<System>::multitask) {
-        new (SYSTEM) Task(new (SYSTEM) Address_Space(MMU::current()),
+        task = new (SYSTEM) Task(new (SYSTEM) Address_Space(MMU::current()),
                           new (SYSTEM) Segment(Log_Addr(si->lm.app_code), si->lm.app_code_size, Segment::Flags::APP),
                           new (SYSTEM) Segment(Log_Addr(si->lm.app_data), si->lm.app_data_size, Segment::Flags::APP),
                           main,
@@ -45,7 +46,7 @@ void Thread::init()
     }
 
     // Idle thread creation does not cause rescheduling (see Thread::constructor_epilogue)
-    new (SYSTEM) Thread(Thread::Configuration(Thread::READY, Thread::IDLE), &Thread::idle);
+    new (SYSTEM) Thread(Thread::Configuration(Thread::READY, Thread::IDLE, WHITE, task), &Thread::idle);
 
     // The installation of the scheduler timer handler does not need to be done after the
     // creation of threads, since the constructor won't call reschedule() which won't call

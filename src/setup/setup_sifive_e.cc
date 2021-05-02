@@ -689,14 +689,24 @@ void Setup::call_next()
     db<Setup>(INF) << "SETUP ends here!" << endl;
 
     // Set SP and call next stage
+    db<Setup>(TRC) << "Setup::CPU::sp(sp);" << endl;
     CPU::sp(sp);
     static_cast<void (*)()>(ip)();
 
+    db<Setup>(TRC) << "Setup::after dudu" << endl;
     if(CPU::id() == 0) { // Boot strap CPU (BSP)
+        db<Setup>(TRC) << "Setup::lm.app_entry" << endl;
         // This will only happen when INIT was called and Thread was disabled
         // Note we don't have the original stack here anymore!
         reinterpret_cast<void (*)()>(si->lm.app_entry)();
     }
+
+    /*
+    db<Setup>(TRC) << "Setup::set user registers" << endl;
+    CPU::sstatuss(CPU::SIE | CPU::SPIE | CPU::SPP_U | CPU::SUM);
+    CPU::sepc(CPU::Reg(&_init_uart));
+    CPU::sret();
+    */
 }
 
 __END_SYS
@@ -725,6 +735,7 @@ void _entry() // machine mode
 void _setup() // supervisor mode
 {
     if(Traits<System>::multitask) {
+        // CPU::sstatuss(CPU::SIE /*| CPU::SPIE | CPU::SPP_U | CPU::SUM*/);
         CPU::sie(CPU::SSI);                             // enable SSI at CLINT so IPI can be triggered
     } else
         CPU::mie(CPU::MSI);                             // enable MSI at CLINT so IPI can be triggered

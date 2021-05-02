@@ -53,7 +53,7 @@ public:
         Page_Flags(unsigned int f) : _flags(f) {}
         Page_Flags(Flags f) : _flags(V | R | X |
                                      ((f & Flags::RW)  ? W  : 0) |
-//                                     ((f & Flags::USR) ? U  : 0) |
+                                    //  ((f & Flags::USR) ? U  : 0) |
                                      ((f & Flags::CWT) ? 0  : 0) |
                                      ((f & Flags::CD)  ? 0  : 0) |
                                      ((f & Flags::CT)  ? CT : 0) |
@@ -399,10 +399,12 @@ public:
     static Phy_Addr pde2phy(PD_Entry entry) { return (entry & ~Page_Flags::MASK) << 2; }
 
     static void flush_tlb() {
-        //TODO
+        db<MMU>(TRC) << "MMU::Flush_TLB" << endl;
+        //ASM("sfence.vma");
     }
     static void flush_tlb(Log_Addr addr) {
-        //TODO
+        db<MMU>(TRC) << "MMU::Flush_TLB COM ADDR" << endl;
+        flush_tlb();
     }
 
 private:

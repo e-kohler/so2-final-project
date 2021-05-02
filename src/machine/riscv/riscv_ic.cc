@@ -15,7 +15,7 @@ IC::Interrupt_Handler IC::_int_vector[IC::INTS];
 void IC::entry()
 {
     ASM("# Save context                                                 \n"
-        "        addi        sp,     sp,   -132                         \n"
+        "        addi        sp,     sp,   -136                         \n"
         "        sw          x1,   4(sp)                                \n"
         "        sw          x2,   8(sp)                                \n"
         "        sw          x3,  12(sp)                                \n"     // we don't save x4 (tp) because it can change across context switches and it is not ment be used by the compiler at application-level.
@@ -46,22 +46,37 @@ void IC::entry()
         "        sw         x29, 112(sp)                                \n"
         "        sw         x30, 116(sp)                                \n"
         "        sw         x31, 120(sp)                                \n");
-if(sup)
-    ASM("        csrr       x31, sstatus                                \n"
-        "        sw         x31, 124(sp)                                \n"
-        "        csrr       x31, sepc                                   \n"
-        "        sw         x31, 128(sp)                                \n");
-else
-    ASM("        csrr       x31, mstatus                                \n"
-        "        sw         x31, 124(sp)                                \n"
-        "        csrr       x31, mepc                                   \n"
-        "        sw         x31, 128(sp)                                \n");
+    if(sup)
+        ASM("        csrr       x31, sstatus                                \n"
+            "        sw         x31, 124(sp)                                \n"
+            "        csrr       x31, sepc                                   \n"
+            "        sw         x31, 128(sp)                                \n"
+            "        csrr       x31, scause                                 \n"
+            "        sw         x31, 132(sp)                                \n");
+    else
+        ASM("        csrr       x31, mstatus                                \n"
+            "        sw         x31, 124(sp)                                \n"
+            "        csrr       x31, mepc                                   \n"
+            "        sw         x31, 128(sp)                                \n");
 
     ASM("        la          ra, .restore                               \n" // set LR to restore context before returning
-        "        j          %0                                          \n"
+        "        j          %0                                          \n" 
         "                                                               \n"
         "# Restore context                                              \n"
-        ".restore:                                                      \n"
+        ".restore:                                                      \n" : : "i"(&dispatch));
+
+
+    ASM("        lw         x31, 124(sp)                                \n"
+        "        csrw   sstatus, x31                                    \n"
+        "        lw         x31, 128(sp)                                \n");
+    CPU::Reg scause;
+    ASM("        lw         %0, 132(sp)                                 \n" : "=r"(scause) : :);
+    if (scause == 9) {
+        ASM("    addi       x31, x31, 4                                 \n");
+    }
+
+
+    ASM("        csrw      sepc, x31                                    \n"
         "        lw          x1,   4(sp)                                \n"
         "        lw          x2,   8(sp)                                \n"
         "        lw          x3,  12(sp)                                \n"
@@ -90,20 +105,18 @@ else
         "        lw         x27, 104(sp)                                \n"
         "        lw         x28, 108(sp)                                \n"
         "        lw         x29, 112(sp)                                \n"
-        "        lw         x30, 116(sp)                                \n" : : "i"(&dispatch));
-if(sup)
-    ASM("        lw         x31, 124(sp)                                \n"
-        "        csrw   sstatus, x31                                    \n"
-        "        lw         x31, 128(sp)                                \n"
-        "        csrw      sepc, x31                                    \n");
+        "        lw         x30, 116(sp)                                \n");
+if(sup) {
+    
+}
 else
     ASM("        lw         x31, 124(sp)                                \n"
         "        csrw   mstatus, x31                                    \n"
         "        lw         x31, 128(sp)                                \n"
         "        csrw      mepc, x31                                    \n");
 
-    ASM("        lw         x31, 120(sp)                                \n"
-        "        addi        sp, sp,    132                             \n");
+ASM("        lw         x31, 120(sp)                                \n"
+    "        addi        sp, sp,    136                             \n");
 if(sup)
     ASM("        sret                                                   \n");
 else
@@ -174,10 +187,22 @@ void IC::exception(Interrupt_Id id)
             db<IC, System>(WRN) << " => data error (unaligned)";
             break;
         case 8: // user-mode environment call
+            /*db<IC>(TRC) << " User Mode Environment Call";
+            CPU::syscalled();*/
+            break;
         case 9: // supervisor-mode environment call
+            {
+                db<IC>(TRC) << " Supervisor Environment Call";
+                CPU::syscalled();
+            }
+            break;
         case 10: // reserved... not described
         case 11: // machine-mode environment call
-            db<IC, System>(WRN) << " => reserved";
+            db<IC>(TRC) << " Machine Mode Environment Call";
+            CPU::Reg mcall;
+            ASM("addi %0, a0, 0" : "=r"(mcall) : :);
+            db<IC>(TRC) << " Switch to Machine Mode Call: " << mcall ;
+            ASM("   csrw mcause, zero       \n");
             break;
         case 12: // Instruction Page Table failure
         case 13: // Load Page Table failure
