@@ -734,8 +734,8 @@ void _entry() // machine mode
 
 void _setup() // supervisor mode
 {
+    CPU::sstatuss(CPU::SUM);
     if(Traits<System>::multitask) {
-        // CPU::sstatuss(CPU::SIE /*| CPU::SPIE | CPU::SPP_U | CPU::SUM*/);
         CPU::sie(CPU::SSI);                             // enable SSI at CLINT so IPI can be triggered
     } else
         CPU::mie(CPU::MSI);                             // enable MSI at CLINT so IPI can be triggered

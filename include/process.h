@@ -15,7 +15,7 @@ __BEGIN_SYS
 
 class Thread
 {
-    friend class Init_First;            // context->load()
+    friend class Init_End;            // context->load()
     friend class Init_System;           // for init() on CPU != 0
     friend class Scheduler<Thread>;     // for link()
     friend class Synchronizer_Common;   // for lock() and sleep()
@@ -124,6 +124,7 @@ private:
 
 protected:
     char * _stack;
+    Context * volatile _context;
     volatile State _state;
     Queue * _waiting;
     Thread * volatile _joining;
@@ -133,10 +134,7 @@ protected:
 
     static volatile unsigned int _thread_count;
     static Scheduler_Timer * _timer;
-    static Scheduler<Thread> _scheduler;
-
-public:
-    Context * volatile _context;
+    static Scheduler<Thread> _scheduler; 
 };
 
 // A Java-like Active Object
@@ -249,7 +247,7 @@ private:
 
 template<typename ... Tn>
 inline Thread::Thread(int (* entry)(Tn ...), Tn ... an)
-: _state(READY), _waiting(0), _joining(0), _link(this, NORMAL), _task(Task::self())
+: _state(READY), _waiting(0), _joining(0), _link(this, NORMAL), _task(Task::self()), _user_stack(0)
 {
     constructor_prologue(WHITE, STACK_SIZE);
     _context = CPU::init_stack(0, _stack + STACK_SIZE, &__exit, entry, an ...);

@@ -187,8 +187,11 @@ void IC::exception(Interrupt_Id id)
             db<IC, System>(WRN) << " => data error (unaligned)";
             break;
         case 8: // user-mode environment call
-            /*db<IC>(TRC) << " User Mode Environment Call";
-            CPU::syscalled();*/
+            {
+                db<IC>(TRC) << " User Mode Environment Call";
+                // Switch to Supervisor here
+                CPU::syscalled();
+            }
             break;
         case 9: // supervisor-mode environment call
             {
@@ -198,12 +201,6 @@ void IC::exception(Interrupt_Id id)
             break;
         case 10: // reserved... not described
         case 11: // machine-mode environment call
-            db<IC>(TRC) << " Machine Mode Environment Call";
-            CPU::Reg mcall;
-            ASM("addi %0, a0, 0" : "=r"(mcall) : :);
-            db<IC>(TRC) << " Switch to Machine Mode Call: " << mcall ;
-            ASM("   csrw mcause, zero       \n");
-            break;
         case 12: // Instruction Page Table failure
         case 13: // Load Page Table failure
         case 14: // reserved... not described

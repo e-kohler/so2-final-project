@@ -41,7 +41,7 @@ public:
             D    = 1 << 7, // Dirty
             CT   = 1 << 8, // Contiguous (reserved for use by supervisor RSW)
             MIO  = 1 << 9, // I/O (reserved for use by supervisor RSW)
-            APP  = (V | R | W | X),
+            APP  = (V | R | W | X | U),
             SYS  = (V | R | W | X),
             IO   = (SYS | MIO),
             DMA  = (SYS | CT),
@@ -53,7 +53,7 @@ public:
         Page_Flags(unsigned int f) : _flags(f) {}
         Page_Flags(Flags f) : _flags(V | R | X |
                                      ((f & Flags::RW)  ? W  : 0) |
-                                    //  ((f & Flags::USR) ? U  : 0) |
+                                     ((f & Flags::USR) ? U  : 0) |
                                      ((f & Flags::CWT) ? 0  : 0) |
                                      ((f & Flags::CD)  ? 0  : 0) |
                                      ((f & Flags::CT)  ? CT : 0) |
@@ -143,6 +143,12 @@ public:
         : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Page_Flags(flags)), _pt(calloc(_pts, WHITE)) {
             _pt->remap(phy_addr, _from, _to, flags);
         }
+
+        // Attempt to create Chunk from logical address in load map
+        // Chunk(Log_Addr log_addr, unsigned int bytes, Flags flags, Color color = WHITE)
+        // : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Page_Flags(flags)), _pt(find_phy_from_log(log_addr)) {
+        //     _pt->map(_from, _to, _flags, color));
+        // }
 
         ~Chunk() {
             if(!(_flags & Page_Flags::IO)) {
@@ -356,6 +362,13 @@ public:
         return phy;
     }
 
+    // Attempt to get a physical address from the directory
+    // static Log_Addr find_phy_from_log(Log_Addr log_addr) {
+    //     unsigned int dir = MMU::current();
+    //     unsigned int dir_vpn = MMU:directory(log_addr);
+    //     return 0;
+    // }
+
     static void free(Phy_Addr frame, int n = 1) {
         // Clean up MMU flags in frame address
         frame = indexes(frame);
@@ -400,7 +413,7 @@ public:
 
     static void flush_tlb() {
         db<MMU>(TRC) << "MMU::Flush_TLB" << endl;
-        //ASM("sfence.vma");
+        ASM("sfence.vma");
     }
     static void flush_tlb(Log_Addr addr) {
         db<MMU>(TRC) << "MMU::Flush_TLB COM ADDR" << endl;

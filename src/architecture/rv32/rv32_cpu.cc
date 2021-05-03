@@ -92,8 +92,11 @@ if(sup){
     ASM("       lw       x3, -120(sp)           \n"     // pop st
         "       csrs    sstatus,   x3           \n"     // set sstatus for sret
         "       lw       x3, -116(sp)           \n"     // pop pc
-        "       csrw    sepc,      x3           \n"     // move pc to sepc for sret
-        "       sret                            \n");
+        "       csrw    sepc,      x3           \n");    // move pc to sepc for sret
+    // Prepare user mode
+    // CPU::sstatusc(CPU::SPP_S);                       // prepare jump into user mode
+    // CPU::sstatuss(CPU::SIE | CPU::SPIE | CPU::SUM);  // reenable of interrupts at sret
+    ASM("       sret                            \n");
 }
 else
     ASM("       lw       x3, -120(sp)           \n"     // pop st
@@ -206,7 +209,7 @@ void CPU::syscall(void * msg)
 void CPU::syscalled()
 {
     _exec(syscall_msg);
-    // ASM("uret");
+    // ASM("uret"); // Return to user mode
 }
 
 __END_SYS

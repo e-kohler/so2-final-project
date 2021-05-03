@@ -43,6 +43,8 @@ public:
 public:
     Segment(unsigned int bytes, Flags flags = Flags::APP);
     Segment(Phy_Addr phy_addr, unsigned int bytes, Flags flags);
+    // Attempt to create a Segment using logical address from load map
+    // Segment(Log_Addr log_addr, unsigned int bytes, Flags flags);
     ~Segment();
 
     unsigned int size() const;

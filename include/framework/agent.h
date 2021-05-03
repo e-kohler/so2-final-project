@@ -24,7 +24,6 @@ public:
             db<Framework>(TRC) << ":=>" << *reinterpret_cast<Message *>(this) << endl;
 
         unsigned int type = id().type();
-        db<Framework>(TRC) << "TYPE DUDU" << type << endl;
         if(type < LAST_TYPE_ID) // in-kernel services
             (this->*_handlers[type])();
 //        else { // out-of-kernel (i.e. Dom0 or server) services
@@ -270,19 +269,93 @@ void Agent::handle_segment()
 
 void Agent::handle_mutex()
 {
-    result(UNDEFINED);
+    Adapter<Mutex> * mutex = reinterpret_cast<Adapter<Mutex> *>(id().unit());
+    Result res = 0;
+
+    switch(method()) {
+    case CREATE: {
+        id(Id(MUTEX_ID, reinterpret_cast<Id::Unit_Id>(new Adapter<Mutex>())));
+        break;
+    }
+    case SYNCHRONIZER_LOCK: {
+        mutex->lock();
+        break;
+    }
+    case SYNCHRONIZER_UNLOCK: {
+        mutex->unlock();
+        break;
+    }
+    case DESTROY: {
+        delete mutex;
+        break;
+    }
+    default: {
+        res = UNDEFINED;
+    }
+    }
+    result(res);
 };
 
 
 void Agent::handle_semaphore()
 {
-    result(UNDEFINED);
+    Adapter<Semaphore> * semaphore = reinterpret_cast<Adapter<Semaphore> *>(id().unit());
+    Result res = 0;
+
+    switch (method())
+    {
+    case CREATE:
+        id(Id(SEMAPHORE_ID, reinterpret_cast<Id::Unit_Id>(new Adapter<Semaphore>())));
+        break;
+    case DESTROY:
+        delete semaphore;
+        break;
+    case SYNCHRONIZER_P:
+        semaphore->p();
+        break;
+    case SYNCHRONIZER_V:
+        semaphore->v();
+        break;
+    default:
+        res = UNDEFINED;
+        break;
+    }
+
+    result(res);
 };
 
 
 void Agent::handle_condition()
 {
-    result(UNDEFINED);
+    Adapter<Condition> * condition = reinterpret_cast<Adapter<Condition> *>(id().unit());
+    Result res = 0;
+
+    switch (method())
+    {
+    case CREATE:
+        id(Id(CONDITION_ID, reinterpret_cast<Id::Unit_Id>(new Adapter<Condition>())));
+        break;
+    case DESTROY:
+        delete condition;
+        break;
+    case SYNCHRONIZER_WAIT: {
+        condition->wait();
+        break;
+    }
+    case SYNCHRONIZER_SIGNAL: {
+        condition->signal();
+        break;
+    }
+    case SYNCHRONIZER_BROADCAST: {
+        condition->broadcast();
+        break;
+    }
+    default:
+        res = UNDEFINED;
+        break;
+    }
+
+    result(res);
 };
 
 
