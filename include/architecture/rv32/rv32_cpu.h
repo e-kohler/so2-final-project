@@ -15,6 +15,7 @@ class CPU: protected CPU_Common
 private:
     static const bool smp = Traits<System>::multicore;
     static const bool sup = Traits<System>::multitask;
+    static void * last_ecall;
 
 public:
     // CPU Native Data Types

@@ -16,19 +16,15 @@ Scheduler_Timer * Thread::_timer;
 Scheduler<Thread> Thread::_scheduler;
 
 
-void Thread::constructor_prologue(const Color & color, unsigned int stack_size)
+void Thread::constructor_prologue(unsigned int stack_size)
 {
     lock();
 
     _thread_count++;
     _scheduler.insert(this);
 
-    if(Traits<MMU>::colorful && color != WHITE)
-        _stack = new (color) char[stack_size];
-    else
-        _stack = new (SYSTEM) char[stack_size];
+    _stack = new (SYSTEM) char[stack_size];
 }
-
 
 void Thread::constructor_epilogue(const Log_Addr & entry, unsigned int stack_size)
 {
@@ -43,7 +39,7 @@ void Thread::constructor_epilogue(const Log_Addr & entry, unsigned int stack_siz
 
     assert((_state != WAITING) && (_state != FINISHING)); // Invalid states
 
-    if((this->_task) && Traits<System>::multitask)
+    if(Traits<System>::multitask)
       _task->insert(this);
 
     db<Thread>(TRC) << "if((_state != READY) && (_state != RUNNING))" <<endl;
@@ -94,7 +90,7 @@ Thread::~Thread()
         break;
     }
 
-    if((this->_task) && Traits<System>::multitask) {
+    if(Traits<System>::multitask) {
       _task->remove(this);
     }
 

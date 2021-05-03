@@ -52,7 +52,7 @@ void IC::entry()
             "        csrr       x31, sepc                                   \n"
             "        sw         x31, 128(sp)                                \n"
             "        csrr       x31, scause                                 \n"
-            "        sw         x31, 132(sp)                                \n");
+            "        sw         x31, 132(sp)                                \n");  // Save scause in stack
     else
         ASM("        csrr       x31, mstatus                                \n"
             "        sw         x31, 124(sp)                                \n"
@@ -70,10 +70,9 @@ void IC::entry()
         "        csrw   sstatus, x31                                    \n"
         "        lw         x31, 128(sp)                                \n");
     CPU::Reg scause;
-    ASM("        lw         %0, 132(sp)                                 \n" : "=r"(scause) : :);
-    if (scause == 9) {
-        ASM("    addi       x31, x31, 4                                 \n");
-    }
+    ASM("        lw         %0, 132(sp)                                 \n" : "=r"(scause) : :);  // Read value saved in stack to check scause
+    if (scause == 9)
+        ASM("    addi       x31, x31, 4                                 \n");  // If scause == 9 (Supervisor Environment Call), add 4
 
 
     ASM("        csrw      sepc, x31                                    \n"
@@ -106,14 +105,12 @@ void IC::entry()
         "        lw         x28, 108(sp)                                \n"
         "        lw         x29, 112(sp)                                \n"
         "        lw         x30, 116(sp)                                \n");
-if(sup) {
-    
-}
-else
+
+if(!sup)
     ASM("        lw         x31, 124(sp)                                \n"
         "        csrw   mstatus, x31                                    \n"
         "        lw         x31, 128(sp)                                \n"
-        "        csrw      mepc, x31                                    \n");
+        "        csrw      mepc, x31                                    \n");   
 
 ASM("        lw         x31, 120(sp)                                \n"
     "        addi        sp, sp,    136                             \n");

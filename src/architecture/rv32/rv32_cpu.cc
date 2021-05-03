@@ -9,6 +9,7 @@ __BEGIN_SYS
 // Class attributes
 unsigned int CPU::_cpu_clock;
 unsigned int CPU::_bus_clock;
+void * CPU::last_ecall;
 
 extern "C" { void _exec(void * m); }
 
@@ -94,7 +95,7 @@ if(sup){
         "       lw       x3, -116(sp)           \n"     // pop pc
         "       csrw    sepc,      x3           \n");    // move pc to sepc for sret
     // Prepare user mode
-    // CPU::sstatusc(CPU::SPP_S);                       // prepare jump into user mode
+    // CPU::sstatusc(CPU::SPP_S);                       // prepare jump into user mode, clear bit 8
     // CPU::sstatuss(CPU::SIE | CPU::SPIE | CPU::SUM);  // reenable of interrupts at sret
     ASM("       sret                            \n");
 }
@@ -199,16 +200,15 @@ else
         "       mret                            \n");
 }
 
-void * syscall_msg;
 void CPU::syscall(void * msg)
 { 
-    syscall_msg = msg;
+    last_ecall = msg;
     CPU::ecall();
 }
 
 void CPU::syscalled()
 {
-    _exec(syscall_msg);
+    _exec(last_ecall);
     // ASM("uret"); // Return to user mode
 }
 

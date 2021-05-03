@@ -693,20 +693,12 @@ void Setup::call_next()
     CPU::sp(sp);
     static_cast<void (*)()>(ip)();
 
-    db<Setup>(TRC) << "Setup::after dudu" << endl;
     if(CPU::id() == 0) { // Boot strap CPU (BSP)
         db<Setup>(TRC) << "Setup::lm.app_entry" << endl;
         // This will only happen when INIT was called and Thread was disabled
         // Note we don't have the original stack here anymore!
         reinterpret_cast<void (*)()>(si->lm.app_entry)();
     }
-
-    /*
-    db<Setup>(TRC) << "Setup::set user registers" << endl;
-    CPU::sstatuss(CPU::SIE | CPU::SPIE | CPU::SPP_U | CPU::SUM);
-    CPU::sepc(CPU::Reg(&_init_uart));
-    CPU::sret();
-    */
 }
 
 __END_SYS
