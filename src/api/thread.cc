@@ -92,6 +92,7 @@ Thread::~Thread()
 
     if(Traits<System>::multitask) {
       _task->remove(this);
+      delete _user_stack;
     }
 
     if(_joining)

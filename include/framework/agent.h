@@ -69,7 +69,7 @@ void Agent::handle_thread()
     case CREATE1: {
         int (*entry)();
         in(entry);
-        id(Id(THREAD_ID, reinterpret_cast<Id::Unit_Id>(new Adapter<Thread>(Thread::Configuration(Thread::READY, Thread::NORMAL, WHITE, Task::self()), entry))));
+        id(Id(THREAD_ID, reinterpret_cast<Id::Unit_Id>(new Adapter<Thread>(Thread::Configuration(Thread::READY, Thread::NORMAL, WHITE, Task::self(), 0), entry))));
     } break;
     case DESTROY:
         delete thread;

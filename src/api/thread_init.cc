@@ -17,7 +17,7 @@ void Thread::init()
 
     System_Info * si = System::info();
     Main * main;
-    Task * task;
+    Task * task = 0;
 
     if(Traits<System>::multitask)
         main = reinterpret_cast<Main *>(si->lm.app_entry);

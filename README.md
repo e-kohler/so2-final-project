@@ -16,3 +16,4 @@ Além desses, implementamos handlers para as classes Semaphore, Mutex e Conditio
 
 # Test
 O teste anexado (test.cc) contém exemplos de funcionalidades que geram syscalls.
+Percebemos que o terminal integrado da nossa IDE não printou toda a execução em alguns casos, mesmo com o funcionamento correto do programa. Para isso recomendamos verificar o output da execução direto no arquivo test.out.

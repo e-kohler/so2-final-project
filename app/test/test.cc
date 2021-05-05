@@ -25,7 +25,7 @@ int main()
         threadB->suspend();
 
         threadA->resume();
-        // EPOS::Thread::yield();
+        EPOS::Thread::yield();
         threadB->resume();
 
         int status_thread_a = threadA->join();

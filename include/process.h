@@ -258,39 +258,61 @@ template<typename ... Tn>
 inline Thread::Thread(const Configuration & conf, int (* entry)(Tn ...), Tn ... an)
 : _state(conf.state), _waiting(0), _joining(0), _link(this, conf.criterion), _task(conf.task)
 {
-	if(multitask && !conf.stack_size) { // Auto-expand, user-level stack
+	if(multitask && !conf.stack_size) {
 		constructor_prologue(STACK_SIZE);
 		_user_stack = new (SYSTEM) Segment(USER_STACK_SIZE);
 
-		// Attach the thread's user-level stack to the current address space so we can initialize it
+        // MAIN : ustack = 0x88000000
+        // NORMAL THREAD 1 : ustack = 0x88400000
+        // NORMAL THREAD 2 : ustack = 0x88800000 
 		Log_Addr ustack = Task::self()->address_space()->attach(_user_stack);
 
-		// Initialize the thread's user-level stack and determine a relative stack pointer (usp) from the top of the stack
+        // USER_STACK_SIZE = 0x4000
+        // MAIN : usp = 0x88000000 + 0x4000 = 0x88004000
+        // NORMAL THREAD 1 : usp = 0x88400000 + 0x4000 = 0x88404000
+        // NORMAL THERAD 2 : usp = 0x88800000 + 0x4000 = 0x88804000
 		Log_Addr usp = ustack + USER_STACK_SIZE;
-		if(conf.criterion == MAIN)
-			usp -= CPU::init_user_stack(usp, 0, an ...); // the main thread of each task must return to crt0 to call _fini (global destructors) before calling __exit
-		else
-			usp -= CPU::init_user_stack(usp, &__exit, an ...); // __exit will cause a Page Fault that must be properly handled
 
-		// Attach the thread's user-level stack from the current address space
+		if(conf.criterion == MAIN) {
+            // CPU::init_user_stack => 0x88004000 - 0x78 = 0x88003F88
+            // usp = 0x88004000 - 0x88003F88 = 0x78
+			usp -= CPU::init_user_stack(usp, 0, an ...);
+        }
+		else 
+        {
+            // NORMAL THREAD 1
+            // CPU::init_user_stack => 0x88404000 - 0x78 = 0x88403F88
+            // usp = 0x88404000 - 0x88403F88 = 0x78
+
+            // NORMAL THREAD 2
+            // CPU::init_user_stack => 0x88804000 - 0x78 = 0x88803F88
+            // usp = 0x88804000 - 0x88803F88 = 0x78
+			usp -= CPU::init_user_stack(usp, &__exit, an ...);
+        }
+
 		Task::self()->address_space()->detach(_user_stack, ustack);
 
-		// Attach the thread's user-level stack to its task's address space so it will be able to access it when it runs
-		ustack = _task->address_space()->attach(_user_stack);
+        // Attach to desired task
+        // MAIN : ustack = 0x88000000
+        // NORMAL THREAD 1 : ustack = 0x88400000
+        // NORMAL THREAD 2 : ustack = 0x88800000
+        ustack = _task->address_space()->attach(_user_stack);
 
-		// Determine an absolute stack pointer (usp) from the top of the thread's user-level stack considering the address it will see it when it runs
-		usp = ustack + USER_STACK_SIZE - usp;
+        // MAIN : usp = 0x88000000 + 0x4000 - 0x78 = 0x88003F88
+        // NORMAL THREAD 1 : usp = 0x88400000 + 0x4000 - 0x78 = 0x88403F88
+        // NORMAL THREAD 2 : usp = 0x88800000 + 0x4000 - 0x78 = 0x88803F88
+        usp = ustack + USER_STACK_SIZE - usp;
 
-		// Initialize the thread's system-level stack
+		// Init kernel stack for this thread
 		_context = CPU::init_stack(usp, _stack + STACK_SIZE, &__exit, entry, an ...);
 	} else {
+        // We don't need extra stacks as the system will always use all the available memory to the stack
 		constructor_prologue(conf.stack_size);
 		_user_stack = 0;
 		_context = CPU::init_stack(0, _stack + conf.stack_size, &__exit, entry, an ...);
 	}
 
 	constructor_epilogue(entry, STACK_SIZE);
-
 }
 
 __END_SYS
