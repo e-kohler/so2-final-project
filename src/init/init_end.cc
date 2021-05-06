@@ -1,4 +1,4 @@
-// EPOS First Thread Initializer
+// EPOS Initializer End
 
 #include <system.h>
 #include <process.h>
@@ -15,8 +15,6 @@ public:
     Init_End() {
         db<Init>(TRC) << "Init_End()" << endl;
 
-        CPU::smp_barrier();
-
         if(!Traits<System>::multithread) {
             CPU::int_enable();
             return;
@@ -30,11 +28,6 @@ public:
         Thread * first = Thread::self();
 
         db<Init, Thread>(INF) << "Dispatching the first thread: " << first << endl;
-
-        // This barrier is particularly important, since afterwards the temporary stacks
-        // and data structures established by SETUP and announced as "free memory" will indeed be
-        // available to user threads.
-        CPU::smp_barrier();
 
         // Interrupts have been disable at Thread::init() and will be reenabled by CPU::Context::load()
         // but we first reset the timer to avoid getting a time interrupt during load()

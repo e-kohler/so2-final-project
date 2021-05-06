@@ -62,6 +62,9 @@ else
         "                                                               \n"
         "# Restore context                                              \n"
         ".restore:                                                      \n"
+        "        lw         x31, 128(sp)                                \n"
+        "        add        x31, x31, x10                               \n" // x10 (a0) is set by the handler to adjust sepc to point to the next instruction if needed
+        "        csrw      sepc, x31                                    \n"
         "        lw          x1,   4(sp)                                \n"
         "        lw          x2,   8(sp)                                \n"
         "        lw          x3,  12(sp)                                \n"
@@ -93,9 +96,7 @@ else
         "        lw         x30, 116(sp)                                \n" : : "i"(&dispatch));
 if(sup)
     ASM("        lw         x31, 124(sp)                                \n"
-        "        csrw   sstatus, x31                                    \n"
-        "        lw         x31, 128(sp)                                \n"
-        "        csrw      sepc, x31                                    \n");
+        "        csrw   sstatus, x31                                    \n");
 else
     ASM("        lw         x31, 124(sp)                                \n"
         "        csrw   mstatus, x31                                    \n"
@@ -134,6 +135,9 @@ void IC::dispatch()
     }
 
     _int_vector[id](id);
+
+    if(id > HARD_INT)
+        CPU::a0(0); // PC is automatically incremented for hardware interrupts and each exception must decide if and how it wants to adjust PC by setting the value to be added as CPU::fr()
 }
 
 void IC::int_not(Interrupt_Id id)
@@ -194,6 +198,8 @@ void IC::exception(Interrupt_Id id)
         db<IC, System>(ERR) << endl;
     else
         db<IC, System>(WRN) << endl;
+
+    CPU::a0(sizeof(void *)); // PC = PC + 4 on return
 }
 
 __END_SYS

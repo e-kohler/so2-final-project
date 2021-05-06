@@ -90,8 +90,10 @@ Thread::~Thread()
         break;
     }
 
-    if(multitask)
+    if(multitask) {
         _task->remove(this);
+        delete _user_stack;
+    }
 
     if(_joining)
         _joining->resume();
@@ -346,6 +348,9 @@ void Thread::dispatch(Thread * prev, Thread * next, bool charge)
         db<Thread>(TRC) << "Thread::dispatch(prev=" << prev << ",next=" << next << ")" << endl;
         db<Thread>(INF) << "prev={" << prev << ",ctx=" << *prev->_context << "}" << endl;
         db<Thread>(INF) << "next={" << next << ",ctx=" << *next->_context << "}" << endl;
+
+        if(multitask && (next->_task != prev->_task))
+            next->_task->activate();
 
         // The non-volatile pointer to volatile pointer to a non-volatile context is correct
         // and necessary because of context switches, but here, we are locked() and

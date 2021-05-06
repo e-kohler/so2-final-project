@@ -1,4 +1,4 @@
-// EPOS First Thread Initializer
+// EPOS Initializer Starting Point
 
 #include <system.h>
 #include <machine.h>

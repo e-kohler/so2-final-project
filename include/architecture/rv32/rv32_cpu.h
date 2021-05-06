@@ -30,29 +30,46 @@ public:
     // Status Register (mstatus)
     typedef Reg32 Flags;
     enum {
-        MIE             = 1 << 3,      // Machine Interrupts Enabled
-        SIE             = 1 << 1,      // Supervisor Interrupts Enabled
-        SPIE            = 1 << 5,      // Supervisor Previous Interrupts Enabled
-        MPIE            = 1 << 7,      // Machine Previous Interrupts Enabled
-        MPP             = 3 << 11,     // Machine Previous Privilege
-        MPP_M           = 3 << 11,     // Machine Previous Privilege = Machine
-        MPP_S           = 1 << 11,     // Machine Previous Privilege = Supervisor
-        MPP_U           = 0 << 11,     // Machine Previous Privilege = User
-        SPP             = 1 << 8,      // Supervisor Previous Privilege
-        SPP_S           = 1 << 8,      // Supervisor Previous Privilege = Supervisor
-        SPP_U           = 0 << 8,      // Supervisor Previous Privilege = User
-        MPRV            = 1 << 17,     // Memory Priviledge
-        TVM             = 1 << 20      // Trap Virtual Memory //not allow MMU
+        UIE             = 1 <<  0,      // User Interrupts Enabled
+        SIE             = 1 <<  1,      // Supervisor Interrupts Enabled
+        MIE             = 1 <<  3,      // Machine Interrupts Enabled
+        UPIE            = 1 <<  4,      // User Previous Interrupts Enabled
+        SPIE            = 1 <<  5,      // Supervisor Previous Interrupts Enabled
+        MPIE            = 1 <<  7,      // Machine Previous Interrupts Enabled
+        SPP             = 1 <<  8,      // Supervisor Previous Privilege
+        SPP_U           = 0 <<  8,      // Supervisor Previous Privilege = user
+        SPP_S           = 1 <<  8,      // Supervisor Previous Privilege = supervisor
+        MPP             = 3 << 11,      // Machine Previous Privilege
+        MPP_U           = 0 << 11,      // Machine Previous Privilege = user
+        MPP_S           = 1 << 11,      // Machine Previous Privilege = supervisor
+        MPP_M           = 3 << 11,      // Machine Previous Privilege = machine
+        FS              = 3 << 13,      // FPU Status
+        FS_OFF          = 0 << 13,      // FPU off
+        FS_INIT         = 1 << 13,      // FPU on
+        FS_CLEAN        = 2 << 13,      // FPU registers clean
+        FS_DIRTY        = 3 << 13,      // FPU registers dirty (and must be saved on context switch)
+        XS              = 3 << 15,      // Extension Status
+        XS_OFF          = 0 << 15,      // Extension off
+        XS_INIT         = 1 << 15,      // Extension on
+        XS_CLEAN        = 2 << 15,      // Extension registers clean
+        XS_DIRTY        = 3 << 15,      // Extension registers dirty (and must be saved on context switch)
+        MPRV            = 1 << 17,      // Memory PRiVilege (when set, enables MMU also in machine mode)
+        SUM             = 1 << 18,      // Supervisor User Memory access allowed
+        MXR             = 1 << 19,      // Make eXecutable Readable
+        TVM             = 1 << 20,      // Trap Virtual Memory makes SATP inaccessible in supervisor mode
+        TW              = 1 << 21,      // Timeout Wait for WFI outside machine mode
+        TSR             = 1 << 22,      // Trap SRet in supervisor mode
+        SD              = 1 << 31,      // Status Dirty = (FS | XS)
     };
 
     // Interrupt-Enable, Interrupt-Pending and Machine Cause Registers (mie, mip, and mcause when interrupt bit is set)
     enum {
-        SSI             = 1 << 1,   // Supervisor Software Interrupt
-        MSI             = 1 << 3,   // Machine Software Interrupt
-        STI             = 1 << 5,   // Supervisor Timer Interrupt
-        MTI             = 1 << 7,   // Machine Timer Interrupt
-        SEI             = 1 << 9,   // Supervisor External Interrupt
-        MEI             = 1 << 11   // Machine External Interrupt
+        SSI             = 1 << 1,       // Supervisor Software Interrupt
+        MSI             = 1 << 3,       // Machine Software Interrupt
+        STI             = 1 << 5,       // Supervisor Timer Interrupt
+        MTI             = 1 << 7,       // Machine Timer Interrupt
+        SEI             = 1 << 9,       // Supervisor External Interrupt
+        MEI             = 1 << 11       // Machine External Interrupt
     };
 
     // Exceptions (mcause with interrupt = 0)
@@ -76,7 +93,7 @@ public:
     class Context
     {
     public:
-        // Contexts are loaded with mret, which gets pc from mepc and updates some bits of mstatus, that's why _st is initialized with MPIE and MPP
+        // Contexts are loaded with [m|s]ret, which gets pc from [m|s]epc and updates some bits of [m|s]status, that's why _st is initialized with [M|S]PIE and [M|S]PP
         Context(const Log_Addr & entry, const Log_Addr & exit): _st(sup ? (SPIE | SPP_S) : (MPIE | MPP_M)), _pc(entry), _x1(exit) {
             if(Traits<Build>::hysterically_debugged || Traits<Thread>::trace_idle) {
                                                                         _x5 =  5;  _x6 =  6;  _x7 =  7;  _x8 =  8;  _x9 =  9;
@@ -127,7 +144,7 @@ public:
         }
 
     public:
-        Reg32  _st; // mstatus
+        Reg32  _st; // [m|s]status
         Reg32  _pc; // pc
     //  Reg32  _x0; // zero
         Reg32  _x1; // ra, ABI Link Register
@@ -205,6 +222,9 @@ public:
     static void fpu_restore();
     static void switch_context(Context ** o, Context * n) __attribute__ ((naked));
 
+    static void syscall(void * message);
+    static void syscalled(unsigned int int_id);
+
     template<typename T>
     static T tsl(volatile T & lock) {
         register T old;
@@ -268,19 +288,16 @@ public:
     using CPU_Common::ntohs;
 
     template<typename ... Tn>
-    static Context * init_stack(const Log_Addr & usp, Log_Addr sp, void (* exit)(), int (* entry)(Tn ...), Tn ... an) {
+    static Context * init_stack(Log_Addr usp, Log_Addr sp, void (* exit)(), int (* entry)(Tn ...), Tn ... an) {
         sp -= sizeof(Context);
         Context * ctx = new(sp) Context(entry, exit);
         init_stack_helper(&ctx->_x10, an ...); // x10 is a0
         return ctx;
     }
+
+    // In RISC-V, the main thread of each task gets parameters over registers, not the stack, and they are initialized by init_stack.
     template<typename ... Tn>
-    static Log_Addr init_user_stack(Log_Addr sp, void (* exit)(), Tn ... an) {
-        sp -= sizeof(Context);
-        Context * ctx = new(sp) Context(0, exit);
-        init_stack_helper(&ctx->_x10, an ...); // x10 is a0
-        return sp;
-    }
+    static Log_Addr init_user_stack(Log_Addr sp, void (* exit)(), Tn ... an) { return sp; }
 
 public:
     // RISC-V 32 specifics
