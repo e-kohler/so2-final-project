@@ -41,7 +41,7 @@ public:
             D    = 1 << 7, // Dirty
             CT   = 1 << 8, // Contiguous (reserved for use by supervisor RSW)
             MIO  = 1 << 9, // I/O (reserved for use by supervisor RSW)
-            APP  = (V | R | W | X),
+            APP  = (V | R | W | X | U),
             SYS  = (V | R | W | X),
             IO   = (SYS | MIO),
             DMA  = (SYS | CT),
@@ -142,6 +142,18 @@ public:
         Chunk(Phy_Addr phy_addr, unsigned int bytes, Flags flags)
         : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Page_Flags(flags)), _pt(calloc(_pts, WHITE)) {
             _pt->remap(phy_addr, _from, _to, flags);
+        }   
+
+        Chunk(Log_Addr log_addr, unsigned int bytes, Flags flags, Color color)
+        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Page_Flags(flags)) {
+            // unsigned int pd = directory(log_addr);
+            // _pt = pde2phy(((PD_Entry *) current())[pd]);
+            // _pt->remap(log_addr, _from, _to, flags);
+            unsigned int pd_index = directory(log_addr);
+            PD_Entry * cur = (PD_Entry *) current();
+            Phy_Addr pde_phy = pde2phy(cur[pd_index]);
+            _pt = pde_phy;
+            _pt->remap(log_addr, _from, _to, flags);
         }
 
         ~Chunk() {

@@ -85,13 +85,19 @@ void CPU::Context::load() const volatile
         "       lw      x29,  -12(sp)           \n"
         "       lw      x30,   -8(sp)           \n"
         "       lw      x31,   -4(sp)           \n" : : "r"(this));
-if(sup)
+if(sup) {
     ASM("       lw       x3, -120(sp)           \n"     // pop st
         "       csrs    sstatus,   x3           \n"     // set sstatus for sret
         "       lw       x3, -116(sp)           \n"     // pop pc
-        "       csrw    sepc,      x3           \n"     // move pc to sepc for sret
-        "       sret                            \n");
-else
+        "       csrw    sepc,      x3           \n");    // move pc to sepc for sret
+    // Prepare user mode
+    // CPU::sstatusc(CPU::SPP_S);                       // prepare jump into user mode, clear bit 8
+    // CPU::sstatuss(CPU::SIE | CPU::SPIE | CPU::SUM);  // reenable of interrupts at sret
+    // CPU::sp(usp);
+    // ASM("       lw sp, 0(sp)                    \n"); // load user stack pointer into sp. (saved after Context by init_stack)
+    ASM("       sret                            \n");
+
+} else
     ASM("       lw       x3, -120(sp)           \n"     // pop st
         "       csrs    mstatus,   x3           \n"     // set mstatus for mret
         "       lw       x3, -116(sp)           \n"     // pop pc
@@ -132,7 +138,9 @@ void CPU::switch_context(Context ** o, Context * n)
         "       sw      x30,   -8(sp)           \n"
         "       sw      x31,   -4(sp)           \n");
 if(sup)
-    ASM("       csrr    x31,  sstatus           \n");   // get sstatus
+    ASM(/*"       li      x31,   1 << 8           \n"
+        "       csrs    sstatus,  x31           \n"
+        */"       csrr    x31,  sstatus           \n");   // get sstatus
 else
     ASM("       csrr    x31,  mstatus           \n");   // get mstatus
 

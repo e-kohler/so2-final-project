@@ -94,7 +94,7 @@ public:
     {
     public:
         // Contexts are loaded with [m|s]ret, which gets pc from [m|s]epc and updates some bits of [m|s]status, that's why _st is initialized with [M|S]PIE and [M|S]PP
-        Context(const Log_Addr & entry, const Log_Addr & exit): _st(sup ? (SPIE | SPP_S) : (MPIE | MPP_M)), _pc(entry), _x1(exit) {
+        Context(const Log_Addr & entry, const Log_Addr & exit): _st(sup ? (SPIE | SPP_S | SUM) : (MPIE | MPP_M)), _pc(entry), _x1(exit) {
             if(Traits<Build>::hysterically_debugged || Traits<Thread>::trace_idle) {
                                                                         _x5 =  5;  _x6 =  6;  _x7 =  7;  _x8 =  8;  _x9 =  9;
                 _x10 = 10; _x11 = 11; _x12 = 12; _x13 = 13; _x14 = 14; _x15 = 15; _x16 = 16; _x17 = 17; _x18 = 18; _x19 = 19;
@@ -289,9 +289,22 @@ public:
 
     template<typename ... Tn>
     static Context * init_stack(Log_Addr usp, Log_Addr sp, void (* exit)(), int (* entry)(Tn ...), Tn ... an) {
+        // sp -= sizeof(Context);
+        // Context * ctx = new(sp) Context(entry, exit/*, (usp == 0)*/);
+        // init_stack_helper(&ctx->_x10, an ...); // x10 is a0
+        // return ctx;
+        sp -= sizeof(Log_Addr);
+        usp -= sizeof(Log_Addr);
+        if (sup)
+            sp -= sizeof(Log_Addr);
+        Log_Addr sp_before_ctx = sp;
         sp -= sizeof(Context);
-        Context * ctx = new(sp) Context(entry, exit);
+        // sp:  0xfffffea4
+        // usp: 0x88003ffc
+        Context * ctx = new(sp) Context(entry, exit/*, usp*/);
         init_stack_helper(&ctx->_x10, an ...); // x10 is a0
+        if (sup)
+            *static_cast<Log_Addr *>(sp_before_ctx) = usp ? usp : sp;
         return ctx;
     }
 
