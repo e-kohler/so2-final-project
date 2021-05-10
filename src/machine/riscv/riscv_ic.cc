@@ -75,7 +75,7 @@ void IC::entry()
     CPU::Reg scause;
     ASM("        lw         %0, 132(sp)                                 \n" : "=r"(scause) : :);  // Read value saved in stack to check scause
     if (scause == 8 || scause == 9)
-        ASM("    addi       x31, x31, 4                                 \n");  // If scause == 9 (Supervisor Environment Call), add 4
+        ASM("    addi       x31, x31, 4                                 \n");  // Supervisor or User Environment Call, add 4
 
 
     ASM("        csrw      sepc, x31                                    \n"

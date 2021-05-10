@@ -1,59 +1,18 @@
-# EPOS
+# P4
 
-The [Embedded Parallel Operating System (EPOS)](https://epos.lisha.ufsc.br) project aims at automating the development of embedded systems so that developers can concentrate on what really matters: their applications. EPOS relies on the Application-Driven Embedded System Design (ADESD) method to guide the development of both software and hardware components that can be automatically adapted to fulfill the requirements of particular applications. EPOS features a set of tools to support developers in selecting, configuring, and plugging components into its application-specific framework. The combination of methodology, components, frameworks, and tools enable the automatic generation of an application-specific embedded system instances. 
+# User mode
+Conseguimos implementar a passagem para modo usuário na execução da aplicação. Para isso, setamos o registrador _st com SPP_U | SPIE | SUM no Context das threads de user, então, após o carregamento do contexto no Context::load(), a execução passará para user mode. Para as threads de kernel, o _st é setado com SPP_S | SPIE | SUM.
 
-## Getting Started
+# Syscalls
+Utilizamos como base o último commit disponibilizado pelo professor, mas adaptamos para uma versão mais parecida com o nosso envio do p3.
+Para acessar funcionalidades do kernel, são geradas syscalls de mensagem pelo usuário, os quais são tratadas pelo handler de exceção.
 
-Check the **Setting up EPOS** section of the [manual](https://epos.lisha.ufsc.br/EPOS+2+User+Guide#Setting_up_EPOS).
+# Mapeamento e proteção
+Utilizamos um construtor de Chunk diferente para o remapeamento das áreas de memória mapeadas no setup. No thread_init(), os Segmentos criados são remapeads com flags de APP, o qual possui o bit 4 de usuário das Page-Flags, permitindo o acesso pelo modo usuário.
 
-### Prerequisites
+# Stack
+No construtor da Thread, no método init_stack, um ponteiro para a stack de user é salvo em cima do objeto de Context da thread. Então, no Context::load() esse ponteiro é passado para o sp, de forma que a aplicação execute em modo usuário com acesso à stack de user.
 
-* **Cross-compilers** for the target architecture you intend to use.
-
-    Fedora packs compilers for x86 that can be installed with ```dnf install binutils-x86_64-linux-gnu gcc-c++-x86_64-linux-gnu``` and ARM compilers that can be installed with: ```dnf install arm-none-eabi-binutils-cs arm-none-eabi-gcc-cs-c++ arm-none-eabi-newlib```.
-
-    On ubuntu 18.04 the x86 packs can be installed with ```apt install binutils-x86-64-linux-gnu```, and ARM compilers can be installed with ```apt install binutils-arm-none-eabi gcc-arm-none-eabi```. Make sure your ubuntu has the ```make``` package already installed.
-
-* **32-bit development libs** (if your development platform is 64-bit)
-
-    For fedora: ```dnf install libc-devel.i686 libstdc++.i686 libstdc++-devel zlib.i686```
-
-    For ubuntu 18.04: ```apt install lib32stdc++6 libc6-i386 libc6-dev-i386 lib32z1 lib32ncurses5 libbz2-1.0:i386 gcc-multilib g++-multilib```
-
-* **Intel 8086** tools (to compile the bootstrap, only if you intend to use x86)
-
-    For fedora: ```dnf install dev86```
-
-    For ubuntu: ```apt install bin86```
-
-### Installing
-
-Simply extract the tarball or clone the repository in a convenient location for you. EPOS is fully self-contained. 
-
-### Building
-
-Go into the directory where you extracted EPOS and issue a ```make all``` to have instances of EPOS built for each of the applications in the ```app``` directory. 
-
-You can also built for specific applications using ```make APPLICATION=<app>```, where \<app\> is a subdir of ```app```.
-
-### Running
-
-After building an application-oriented instance of EPOS, you can run the application with the tailored EPOS on QEMU using: ```make APPLICATION=<app> run```
-
-## Contributing
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
-
-## Versioning
-
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://gitlab.lisha.ufsc.br/osdi/teaching2/tags). 
-
-## Authors
-
-* **Antônio Augusto Fröhlich** - *Initial work* - [Guto](https://lisha.ufsc.br/Guto)
-
-See also the list of [contributors](https://epos.lisha.ufsc.br/EPOS+Developers) who participated in this project.
-
-## License
-
-This project is licensed under the GPL 2.0 License - see the [LICENSE](LICENSE) file for details
+# Dificuldades
+Não conseguimos implementar uma solução para o switch_context a tempo. Realizamos testes principalmente com a aplicação hello, e no estado final, as syscalls de print funcionam, porém uma exceção 7 é gerada após a Thread::exit(), justamente pois essa gera um dispatch(), o qual invoca um switch_context().
+Entendemos que deveríamos salvar o contexto das threads considerando a stack de usuário, para que a Thread que esteja entrando tenha um valor válido de sp antes do sret.
