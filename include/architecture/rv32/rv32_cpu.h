@@ -15,6 +15,7 @@ class CPU: protected CPU_Common
 private:
     static const bool smp = Traits<System>::multicore;
     static const bool sup = Traits<System>::multitask;
+    static void * last_ecall_msg;
 
 public:
     // CPU Native Data Types
@@ -87,6 +88,7 @@ public:
         EXC_ENVS        = 9,    // Environment call from S-mode
         EXC_ENVH        = 10,   // Environment call from H-mode
         EXC_ENVM        = 11    // Environment call from M-mode
+        // EXC_ISTPGFLT        = 12    // Instruction Page Fault
     };
 
     // Context
@@ -94,12 +96,17 @@ public:
     {
     public:
         // Contexts are loaded with [m|s]ret, which gets pc from [m|s]epc and updates some bits of [m|s]status, that's why _st is initialized with [M|S]PIE and [M|S]PP
-        Context(const Log_Addr & entry, const Log_Addr & exit): _st(sup ? (SPIE | SPP_S | SUM) : (MPIE | MPP_M)), _pc(entry), _x1(exit) {
+        Context(const Log_Addr & entry, const Log_Addr & exit, bool is_kernel): _pc(entry), _x1(exit) {
             if(Traits<Build>::hysterically_debugged || Traits<Thread>::trace_idle) {
                                                                         _x5 =  5;  _x6 =  6;  _x7 =  7;  _x8 =  8;  _x9 =  9;
                 _x10 = 10; _x11 = 11; _x12 = 12; _x13 = 13; _x14 = 14; _x15 = 15; _x16 = 16; _x17 = 17; _x18 = 18; _x19 = 19;
                 _x20 = 20; _x21 = 21; _x22 = 22; _x23 = 23; _x24 = 24; _x25 = 25; _x26 = 26; _x27 = 27; _x28 = 28; _x29 = 29;
                 _x30 = 30; _x31 = 31;
+
+                if (is_kernel)
+                    _st = sup ? (SPIE | SPP_S | SUM) : (MPIE | MPP_M);
+                else
+                    _st = sup ? (SPIE | SPP_U | SUM) : (MPIE | MPP_U);
             }
         }
 
@@ -223,7 +230,7 @@ public:
     static void switch_context(Context ** o, Context * n) __attribute__ ((naked));
 
     static void syscall(void * message);
-    static void syscalled(unsigned int int_id);
+    static void syscalled(void * message);
 
     template<typename T>
     static T tsl(volatile T & lock) {
@@ -289,19 +296,15 @@ public:
 
     template<typename ... Tn>
     static Context * init_stack(Log_Addr usp, Log_Addr sp, void (* exit)(), int (* entry)(Tn ...), Tn ... an) {
-        // sp -= sizeof(Context);
-        // Context * ctx = new(sp) Context(entry, exit/*, (usp == 0)*/);
-        // init_stack_helper(&ctx->_x10, an ...); // x10 is a0
-        // return ctx;
         sp -= sizeof(Log_Addr);
-        usp -= sizeof(Log_Addr);
         if (sup)
             sp -= sizeof(Log_Addr);
         Log_Addr sp_before_ctx = sp;
         sp -= sizeof(Context);
         // sp:  0xfffffea4
         // usp: 0x88003ffc
-        Context * ctx = new(sp) Context(entry, exit/*, usp*/);
+        Context * ctx = new(sp) Context(entry, exit, (usp == 0));
+        usp -= sizeof(Log_Addr);
         init_stack_helper(&ctx->_x10, an ...); // x10 is a0
         if (sup)
             *static_cast<Log_Addr *>(sp_before_ctx) = usp ? usp : sp;

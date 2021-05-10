@@ -33,12 +33,9 @@ extern "C" {
 __USING_SYS;
 extern "C" {
     void _syscall(void * m) { 
-        
-        db<Message>(TRC) << "Generating syscall: " << m <<  endl;
         CPU::syscall(m); 
     }
     void _print(const char * s) {
-        db<Message>(TRC) << "Printing message: " << s <<  endl;
         Message msg(Id(UTILITY_ID, 0), Message::PRINT, reinterpret_cast<unsigned int>(s));
         msg.act();
     }

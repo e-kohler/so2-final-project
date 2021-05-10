@@ -2,12 +2,15 @@
 
 #include <architecture/rv32/rv32_cpu.h>
 #include <system.h>
+#include <framework/message.h>
 
 __BEGIN_SYS
 
 // Class attributes
 unsigned int CPU::_cpu_clock;
 unsigned int CPU::_bus_clock;
+
+extern "C" { void _exec(void * m); }
 
 // Class methods
 void CPU::Context::save() volatile
@@ -89,13 +92,9 @@ if(sup) {
     ASM("       lw       x3, -120(sp)           \n"     // pop st
         "       csrs    sstatus,   x3           \n"     // set sstatus for sret
         "       lw       x3, -116(sp)           \n"     // pop pc
-        "       csrw    sepc,      x3           \n");    // move pc to sepc for sret
-    // Prepare user mode
-    // CPU::sstatusc(CPU::SPP_S);                       // prepare jump into user mode, clear bit 8
-    // CPU::sstatuss(CPU::SIE | CPU::SPIE | CPU::SUM);  // reenable of interrupts at sret
-    // CPU::sp(usp);
-    // ASM("       lw sp, 0(sp)                    \n"); // load user stack pointer into sp. (saved after Context by init_stack)
-    ASM("       sret                            \n");
+        "       csrw    sepc,      x3           \n"     // move pc to sepc for sret
+        "       lw sp, 0(sp)                    \n"     // load user stack pointer into sp. (saved after Context by init_stack)
+        "       sret                            \n");
 
 } else
     ASM("       lw       x3, -120(sp)           \n"     // pop st
@@ -107,8 +106,10 @@ if(sup) {
 
 void CPU::switch_context(Context ** o, Context * n)
 {   
+    db<CPU>(TRC) << "Switching context - " << " previous: " << o << " next: " << n <<  endl;
     // Push the context into the stack and update "o"
-    ASM("       sw       x1, -116(sp)           \n"     // push the return address as pc
+    ASM("       sw       sp,    0(sp)           \n"     // push sp
+        "       sw       x1, -116(sp)           \n"     // push the return address as pc
         "       sw       x1, -112(sp)           \n"     // push ra
         "       sw       x5, -108(sp)           \n"     // push x5-x31
         "       sw       x6, -104(sp)           \n"
@@ -138,9 +139,9 @@ void CPU::switch_context(Context ** o, Context * n)
         "       sw      x30,   -8(sp)           \n"
         "       sw      x31,   -4(sp)           \n");
 if(sup)
-    ASM(/*"       li      x31,   1 << 8           \n"
+    ASM("       li      x31,   1 << 8           \n"
         "       csrs    sstatus,  x31           \n"
-        */"       csrr    x31,  sstatus           \n");   // get sstatus
+        "       csrr    x31,  sstatus           \n");   // get sstatus
 else
     ASM("       csrr    x31,  mstatus           \n");   // get mstatus
 
@@ -190,6 +191,7 @@ if(sup)
         "       csrw    sstatus, x31            \n"
         "       lw      x30,   -8(sp)           \n"
         "       lw      x31,   -4(sp)           \n"
+        "       lw      sp,     0(sp)           \n"
         "       sret                            \n");
 else
     ASM("       li      x30,  3 << 11           \n"     // set sstatus.MPP = machine through x30
@@ -197,7 +199,19 @@ else
         "       csrw    mstatus,  x31           \n"
         "       lw      x30,   -8(sp)           \n"
         "       lw      x31,   -4(sp)           \n"
+        "       lw      sp,     0(sp)           \n"
         "       mret                            \n");
+}
+
+void CPU::syscall(void * message)
+{ 
+    CPU::a1(reinterpret_cast<CPU::Reg>(message));
+    CPU::ecall();
+}
+
+void CPU::syscalled(void * message)
+{
+    _exec(message);
 }
 
 __END_SYS

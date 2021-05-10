@@ -45,6 +45,7 @@ private:
     static const unsigned int SYS_STACK = Memory_Map::SYS_STACK;
     static const unsigned int APP_CODE  = Memory_Map::APP_CODE;
     static const unsigned int APP_DATA  = Memory_Map::APP_DATA;
+    static const unsigned int APP_PREHEAP  = Memory_Map::APP_PREHEAP;
 
     // Architecture Imports
     typedef CPU::Reg32 Reg32;

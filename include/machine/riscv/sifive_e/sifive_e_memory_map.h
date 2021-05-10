@@ -35,6 +35,7 @@ struct Memory_Map
         INIT            = Traits<System>::multitask ? Traits<Machine>::INIT : NOT_USED,
 
         APP_LOW         = Traits<System>::multitask ? Traits<Machine>::APP_LOW : Traits<Machine>::SETUP,
+        APP_PREHEAP     = Traits<System>::multitask ? Traits<Machine>::APP_PREHEAP : 0,
         APP_CODE        = APP_LOW,
         APP_DATA        = Traits<System>::multitask ? APP_LOW + 4 * 1024 * 1024 : APP_LOW,
         APP_HIGH        = Traits<Machine>::APP_HIGH,

@@ -20,8 +20,8 @@ void IC::init()
         _int_vector[i] = &exception;
 
     // Install the syscall trap handler
-    if(Traits<Build>::MODE == Traits<Build>::KERNEL)
-        _int_vector[INT_SYSCALL] = &CPU::syscalled;
+    /*if(Traits<Build>::MODE == Traits<Build>::KERNEL)
+        _int_vector[INT_SYSCALL] = &CPU::syscalled;*/
 
     // Set all interrupt handlers to int_not()
     for(Interrupt_Id i = HARD_INT; i < INTS; i++)

@@ -20,11 +20,12 @@ private:
 
 public:
     void exec() {
-        if(id().type() != UTILITY_ID)
+        unsigned int type = id().type();
+        if(type != UTILITY_ID)
             db<Framework>(TRC) << ":=>" << *reinterpret_cast<Message *>(this) << endl;
 
-        if(id().type() < LAST_TYPE_ID) // in-kernel services
-            (this->*_handlers[id().type()])();
+        if(type < LAST_TYPE_ID) // in-kernel services
+            (this->*_handlers[type])();
 //        else { // out-of-kernel (i.e. Dom0 or server) services
 //            db<Framework>(TRC) << "P3" << endl;
 //                Message msg(*this); // copy message from user space to kernel
@@ -36,7 +37,7 @@ public:
 //                    result(UNDEFINED);
 //        }
 
-        if(id().type() != UTILITY_ID)
+        if(type != UTILITY_ID)
             db<Framework>(TRC) << "<=:" << *reinterpret_cast<Message *>(this) << endl;
         if(result() == UNDEFINED)
             db<Framework>(WRN) << "<=:" << *reinterpret_cast<Message *>(this) << endl;

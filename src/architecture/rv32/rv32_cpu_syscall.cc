@@ -1,9 +1,12 @@
 // EPOS RISC-V 32System Call Function Implementation
 
+/*
 #include <architecture/rv32/rv32_cpu.h>
 #include <machine/ic.h>
 
 __BEGIN_SYS
+
+// Class attributes
 
 void CPU::syscall(void * message)
 {
@@ -12,3 +15,4 @@ void CPU::syscall(void * message)
 }
 
 __END_SYS
+*/
