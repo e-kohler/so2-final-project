@@ -16,6 +16,7 @@ private:
     static const bool smp = Traits<System>::multicore;
     static const bool sup = Traits<System>::multitask;
     static void * last_ecall_msg;
+    static Reg32 return_status;
 
 public:
     // CPU Native Data Types
@@ -74,7 +75,7 @@ public:
     };
 
     // Exceptions (mcause with interrupt = 0)
-    static const unsigned int EXCEPTIONS = 12;
+    static const unsigned int EXCEPTIONS = 13;
     enum {
         EXC_IALIGN      = 0,    // Instruction address misaligned
         EXC_IFAULT      = 1,    // Instruction access fault
@@ -87,8 +88,8 @@ public:
         EXC_ENVU        = 8,    // Environment call from U-mode
         EXC_ENVS        = 9,    // Environment call from S-mode
         EXC_ENVH        = 10,   // Environment call from H-mode
-        EXC_ENVM        = 11    // Environment call from M-mode
-        // EXC_ISTPGFLT        = 12    // Instruction Page Fault
+        EXC_ENVM        = 11,   // Environment call from M-mode
+        EXC_ISTPGFLT    = 12    // Instruction Page Fault
     };
 
     // Context
@@ -296,18 +297,17 @@ public:
 
     template<typename ... Tn>
     static Context * init_stack(Log_Addr usp, Log_Addr sp, void (* exit)(), int (* entry)(Tn ...), Tn ... an) {
+        Log_Addr usp_p = usp;
         sp -= sizeof(Log_Addr);
+        usp_p -= sizeof(Log_Addr);
         if (sup)
             sp -= sizeof(Log_Addr);
         Log_Addr sp_before_ctx = sp;
         sp -= sizeof(Context);
-        // sp:  0xfffffea4
-        // usp: 0x88003ffc
         Context * ctx = new(sp) Context(entry, exit, (usp == 0));
-        usp -= sizeof(Log_Addr);
         init_stack_helper(&ctx->_x10, an ...); // x10 is a0
         if (sup)
-            *static_cast<Log_Addr *>(sp_before_ctx) = usp ? usp : sp;
+            *static_cast<Log_Addr *>(sp_before_ctx) = usp ? usp_p : sp;
         return ctx;
     }
 

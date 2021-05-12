@@ -106,9 +106,11 @@ if(sup) {
 
 void CPU::switch_context(Context ** o, Context * n)
 {   
-    db<CPU>(TRC) << "Switching context - " << " previous: " << o << " next: " << n <<  endl;
     // Push the context into the stack and update "o"
-    ASM("       sw       sp,    0(sp)           \n"     // push sp
+    ASM("       sw       sp,  120(%0)           \n"     // push sp
+        "       mv       sp,      %0            \n" : : "r"(*o) :);
+ 
+    ASM("       addi     sp, sp,  120           \n"    
         "       sw       x1, -116(sp)           \n"     // push the return address as pc
         "       sw       x1, -112(sp)           \n"     // push ra
         "       sw       x5, -108(sp)           \n"     // push x5-x31
@@ -145,9 +147,7 @@ if(sup)
 else
     ASM("       csrr    x31,  mstatus           \n");   // get mstatus
 
-    ASM("       sw      x31, -120(sp)           \n"     // push st
-        "       addi     sp,      sp,   -120    \n"     // complete the pushes above by adjusting the SP
-        "       sw       sp,    0(a0)           \n");   // update Context * volatile * o
+    ASM("       sw      x31, -120(sp)           \n");   // push st
 
     // Set the stack pointer to "n" and pop the context from the stack
     ASM("       mv       sp,      a1            \n"     // get Context * volatile n into SP
@@ -185,14 +185,15 @@ else
         "       lw      x28,  -16(sp)           \n"
         "       lw      x29,  -12(sp)           \n"
         "       lw      x31, -120(sp)           \n");   // pop st
-if(sup)
-    ASM("       li      x30,   1 << 8           \n"     // set sstatus.MPP = supervisor through x30
-        "       or      x31, x31, x30           \n"     // machine mode on MPP is needed to avoid errors on mret (when dealing with machine mode)
-        "       csrw    sstatus, x31            \n"
-        "       lw      x30,   -8(sp)           \n"
+if(sup) {
+    ASM("       csrw    sstatus, x31            \n");
+
+    ASM("       lw      x30,   -8(sp)           \n"
         "       lw      x31,   -4(sp)           \n"
-        "       lw      sp,     0(sp)           \n"
-        "       sret                            \n");
+        "       lw      sp,     0(sp)           \n");
+
+    ASM("       sret                            \n");
+}
 else
     ASM("       li      x30,  3 << 11           \n"     // set sstatus.MPP = machine through x30
         "       or      x31, x31, x30           \n"     // machine mode on MPP is needed to avoid errors on mret

@@ -21,7 +21,7 @@ private:
 public:
     void exec() {
         unsigned int type = id().type();
-        if(type != UTILITY_ID)
+        // if(type != UTILITY_ID)
             db<Framework>(TRC) << ":=>" << *reinterpret_cast<Message *>(this) << endl;
 
         if(type < LAST_TYPE_ID) // in-kernel services
@@ -37,7 +37,7 @@ public:
 //                    result(UNDEFINED);
 //        }
 
-        if(type != UTILITY_ID)
+        // if(type != UTILITY_ID)
             db<Framework>(TRC) << "<=:" << *reinterpret_cast<Message *>(this) << endl;
         if(result() == UNDEFINED)
             db<Framework>(WRN) << "<=:" << *reinterpret_cast<Message *>(this) << endl;

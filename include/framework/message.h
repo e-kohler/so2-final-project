@@ -123,7 +123,7 @@ public:
     Element * lext() { return &_link; }
 
     friend Debug & operator << (Debug & db, const Message & m) {
-          db << "{id=" << m._id << ",m=" << hex << m._method << ",rt=" << m._reply_to
+          db << "{id=" << m._id << ",m=" << m._method << ",rt=" << m._reply_to
              << ",p={" << reinterpret_cast<void *>(*static_cast<const int *>(reinterpret_cast<const void *>(&m._parms[0]))) << ","
              << reinterpret_cast<void *>(*static_cast<const int *>(reinterpret_cast<const void *>(&m._parms[4]))) << ","
              << reinterpret_cast<void *>(*static_cast<const int *>(reinterpret_cast<const void *>(&m._parms[8]))) << "}}";

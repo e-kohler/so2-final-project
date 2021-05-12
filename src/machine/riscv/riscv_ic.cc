@@ -3,6 +3,7 @@
 #include <machine/machine.h>
 #include <machine/ic.h>
 #include <machine/timer.h>
+#include <process.h>
 
 extern "C" { void _int_entry() __attribute__ ((nothrow, alias("_ZN4EPOS1S2IC5entryEv"))); }
 
@@ -11,6 +12,7 @@ __BEGIN_SYS
 // Class attributes
 IC::Interrupt_Handler IC::_int_vector[IC::INTS];
 static void * last_ecall_msg;
+static CPU::Reg32 return_status;
 
 // Class methods
 void IC::entry()
@@ -59,8 +61,11 @@ void IC::entry()
             "        sw         x31, 124(sp)                                \n"
             "        csrr       x31, mepc                                   \n"
             "        sw         x31, 128(sp)                                \n");
-    if (CPU::scause() == 8 || CPU::scause() == 9) {
+    if (CPU::scause() == 8) {
         last_ecall_msg = reinterpret_cast<void *>(CPU::a1());
+    }
+    if (CPU::scause() == 12) {
+        return_status = CPU::fr();
     }
     ASM("        la          ra, .restore                               \n" // set LR to restore context before returning
         "        j          %0                                          \n" 
@@ -74,7 +79,7 @@ void IC::entry()
         "        lw         x31, 128(sp)                                \n");
     CPU::Reg scause;
     ASM("        lw         %0, 132(sp)                                 \n" : "=r"(scause) : :);  // Read value saved in stack to check scause
-    if (scause == 8 || scause == 9)
+    if (scause == 8)
         ASM("    addi       x31, x31, 4                                 \n");  // Supervisor or User Environment Call, add 4
 
 
@@ -148,8 +153,6 @@ void IC::dispatch()
 
     _int_vector[id](id);
 
-    if(id > HARD_INT)
-        CPU::a0(0); // PC is automatically incremented for hardware interrupts and each exception must decide if and how it wants to adjust PC by setting the value to be added as CPU::fr()
 }
 
 void IC::int_not(Interrupt_Id id)
@@ -201,7 +204,10 @@ void IC::exception(Interrupt_Id id)
         case 11: // machine-mode environment call
             db<IC, System>(WRN) << " => reserved";
             break;
-        case 12: // Instruction Page Table failure
+        case 12:
+            db<IC, System>(WRN) << "IC=12";
+            Thread::exit(return_status);
+            break;
         case 13: // Load Page Table failure
         case 14: // reserved... not described
         case 15: // Store Page Table failure
@@ -217,7 +223,6 @@ void IC::exception(Interrupt_Id id)
     else
         db<IC, System>(WRN) << endl;
 
-    CPU::a0(sizeof(void *)); // PC = PC + 4 on return
 }
 
 __END_SYS
